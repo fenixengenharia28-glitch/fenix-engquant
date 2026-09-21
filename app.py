@@ -56,11 +56,18 @@ with col_cl3:
     cliente_cidade = st.text_input("Cidade / UF:", value="Belo Horizonte / MG")
 
 CONCESSIONARIAS = {
-    "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
-    "ENEL (São Paulo)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
-    "ENEL (Rio de Janeiro)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001"},
-    "CPFL (Paulista)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
-    "LIGHT (Rio de Janeiro)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT"}
+    "CEMIG (MG)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
+    "ENEL (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
+    "ENEL (RJ)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001"},
+    "ENEL (CE)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "CPFL Paulista (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
+    "LIGHT (RJ)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT"},
+    "COPEL (PR)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100"},
+    "CELESC (SC)": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001"},
+    "EQUATORIAL (MA/PA/PI/AL)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
+    "NEOENERGIA (BA/PE/RN/DF)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "EDP (SP/ES)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "DIT-24"},
+    "ENERGISA (MT/MS/TO/RO/AC)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN"}
 }
 st.markdown("---")
 def calcular_bitola_e_disjuntor(potencia, tensao, comprimento, tipo_carga):
@@ -80,7 +87,7 @@ def calcular_bitola_e_disjuntor(potencia, tensao, comprimento, tipo_carga):
     bitola_final = bitola_inicial
     iz_cabo = corrente_max_cabo
     
-    for b, cap in zip(bitolas_comerciais, capacities_corrente := capacidades_corrente):
+    for b, cap in zip(bitolas_comerciais, capacidades_corrente):
         if b >= bitola_inicial and cap >= ib:
             bitola_final = b
             iz_cabo = cap
@@ -126,6 +133,8 @@ def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad, circuitos_
     
     materiais.append({"Etapa": "Dispositivos QDC", "Material": f"Quadro de Distribuição (QDC) Embutir {padrao_qdc} Módulos DIN Completo (NBR 5410)", "Quantidade": 1, "Unidade": "un"})
     st.session_state.lista_materiais_eletricos = materiais
+
+tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "📥 3. Fechamento & Relatório PDF"])
 with tab_civil:
     st.write("### 🧱 Configuração do Método de Levantamento Estrutural")
     metodo_calculo = st.radio("Escolha a metodologia de cubagem civil:", ["Cálculo por Metro Quadrado (Global)", "Prancha Customizada Cômodo por Cômodo"], horizontal=True)
@@ -152,7 +161,6 @@ with tab_civil:
             qtd_portas_int = max(2, math.ceil(area_obra * 0.05))
             qtd_janelas = max(2, math.ceil(area_obra * 0.06))
             
-            # ATUALIZAÇÃO DEMANDADA: Retornar TODOS os materiais para fazer uma construção civil do zero
             st.session_state.lista_materiais_civil.extend([
                 {"Etapa": "01. Locação e Infra", "Material": "Madeira de Pinus para Gabarito / Sarrafo (Barra 3m)", "Quantidade": math.ceil(perimetro_paredes * 0.5), "Unidade": "un"},
                 {"Etapa": "01. Locação e Infra", "Material": "Arame Galvanizado para Alinhamento", "Quantidade": 2, "Unidade": "rl"},
@@ -215,7 +223,6 @@ with tab_civil:
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
 with tab_eletrica:
     st.write("### 🎛️ Modos de Cálculo do Sistema de Cabeamento e Proteção")
-    # CORREÇÃO DEMANDADA: Erro de sintaxe corrigido eliminando a atribuição de morsa inválida
     modo_eletrico = st.radio("Escolha o modo de lançamento elétrico:", ["Fazer o cálculo da casa toda (Planta Modelo Otimizada)", "Lançar circuitos separados (Cálculo Individual Automático)"], horizontal=True)
     concessionaria_sel = st.selectbox("🔌 Concessionária Distribuidora de Energia:", list(CONCESSIONARIAS.keys()))
     dados_c = CONCESSIONARIAS[concessionaria_sel]
@@ -297,7 +304,6 @@ def gerar_pdf_completo_obra():
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS</b>", estilo_titulo), Spacer(1, 4)]
     
-    # ATUALIZAÇÃO DEMANDADA: Timbre oficial dos dados do cliente homologado no PDF
     dados_cliente_tabela = [
         [Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]
     ]
