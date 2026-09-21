@@ -12,7 +12,7 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP de Engenharia: Tabela de Cargas do Anexo NBR 5410 & Quantitativos Separados")
+st.subheader("ERP de Engenharia: Homologação de Padrão por Concessionária & Tabelas NBR 5410")
 st.markdown("---")
 
 AVISO_NBR = (
@@ -21,16 +21,17 @@ AVISO_NBR = (
     "VERIFIQUE O FUNCIONAMENTO DO DISPOSITIVO DR MENSALMENTE APERTANDO O BOTÃO DE TESTE (T)."
 )
 
+# Banco de dados com dados de limites de engenharia reais para Padrão de Entrada
 CONCESSIONARIAS = {
-    "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000},
-    "ENEL (São Paulo)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000},
-    "ENEL (Rio de Janeiro)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000},
-    "CPFL (Paulista)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000},
-    "LIGHT (Rio de Janeiro)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000},
-    "COPEL (Paraná)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000},
-    "CELESC (Santa Catarina)": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000},
-    "NEOENERGIA": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000},
-    "EQUATORIAL": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000}
+    "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
+    "ENEL (São Paulo)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
+    "ENEL (Rio de Janeiro)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001"},
+    "CPFL (Paulista)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
+    "LIGHT (Rio de Janeiro)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT"},
+    "COPEL (Paraná)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100"},
+    "CELESC (Santa Catarina)": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001"},
+    "NEOENERGIA (Coelba/Elektro/DF)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "EQUATORIAL (Maranhão/Pará)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"}
 }
 
 if "lista_circuitos" not in st.session_state:
@@ -133,7 +134,7 @@ with tab_eletrica:
     st.write("### 🎛️ Configuração do Quadro de Distribuição de Cargas (QDC)")
     col_el1, col_el2 = st.columns(2)
     with col_el1:
-        concessionaria_sel = st.selectbox("🔌 Concessionária:", list(CONCESSIONARIAS.keys()), key="sb_concessionaria_el")
+        concessionaria_sel = st.selectbox("🔌 Escolha a Concessionária de Energia:", list(CONCESSIONARIAS.keys()), key="sb_concessionaria_el")
         dados_c = CONCESSIONARIAS[concessionaria_sel]
     with col_el2:
         st.write("### 🏡 Opção 1: Carregar Planta Completa conforme Anexo")
@@ -181,53 +182,73 @@ with tab_eletrica:
                 })
                 st.success("Circuito adicionado!")
                 st.rerun()
+# --- CÁLCULO GERAL E REGULAMENTAÇÃO TÉCNICA DO PADRÃO DE ENTRADA ---
 pot_total = sum(c["Carga"] for c in st.session_state.lista_circuitos)
 dados_c_global = CONCESSIONARIAS[concessionaria_sel]
+
+# Aplicação das regras de engenharia de limites para fixar cabos e disjuntores da rua
 if pot_total <= dados_c_global["limite_mono"]:
     tipo_entrada, cabo_padrao, dj_padrao = "Monofásico", "10.0 mm²", "40 A"
+    detalhe_caixa = "Caixa Tipo 'E' ou Tipo 'A' (De acordo com normas locais)"
 elif pot_total <= dados_c_global["limite_bi"]:
     tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
+    detalhe_caixa = "Caixa Tipo 'F' ou Tipo 'B' (De acordo com normas locais)"
 else:
     tipo_entrada, cabo_padrao, dj_padrao = "Trifásico", "25.0 mm²", "80 A"
+    detalhe_caixa = "Caixa Tipo 'H' ou Tipo 'C' (De acordo com normas locais)"
 
 recalcular_materials = recalcular_materiais_brutos_eletricos(area_obra, tipo_entrada, dj_padrao)
 
 if st.session_state.lista_circuitos:
-    st.write("#### 📋 Circuitos e Materiais Elétricos")
+    st.write("#### 📋 Painel de Controle: Padrão Homologado")
+    st.success(f"📋 **Enquadramento Técnico ({dados_c_global['norma']}):** Fornecimento **{tipo_entrada}** | Disjuntor Geral da Caixa: **{dj_padrao}** | Ramal de Entrada: **{cabo_padrao}**")
     st.dataframe(pd.DataFrame(st.session_state.lista_circuitos), use_container_width=True)
-    st.dataframe(pd.DataFrame(st.session_state.lista_materiais_eletricos), use_container_width=True)
 
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     estilos = getSampleStyleSheet()
     
-    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=15, textColor=colors.HexColor('#1E3A8A'), spaceAfter=8)
+    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=14, textColor=colors.HexColor('#1E3A8A'), spaceAfter=8)
     estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=11, textColor=colors.HexColor('#0D9488'), spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
     estilo_corpo = ParagraphStyle('C', parent=estilos['BodyText'], fontSize=8.5, spaceAfter=3)
     estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['BodyText'], fontSize=9, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold')
     estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=8)
     
-    elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO</b>", estilo_titulo), Spacer(1, 6)]
+    elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS E HOMOLOGAÇÃO</b>", estilo_titulo), Spacer(1, 6)]
     
+    # SEÇÃO DO PADRÃO DE ENTRADA DA CONCESSIONÁRIA NO PDF
+    elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Tecnica da {concessionaria_sel}</b>", estilo_sub))
+    dados_padrao_pdf = [
+        ["Parâmetro do Padrão", "Especificação Conforme Norma Técnica Vigente"],
+        ["Norma Técnica Base", dados_c_global["norma"]],
+        ["Tipo de Fornecimento", tipo_entrada],
+        ["Cabo do Ramal (Entrada)", cabo_padrao],
+        ["Disjuntor Geral da Caixa", dj_padrao],
+        ["Modelo de Caixa Sugerido", detalhe_caixa]
+    ]
+    t_pad = Table(dados_padrao_pdf, colWidths=)
+    t_pad.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
+    ]))
+    elementos.append(t_pad)
+    elementos.append(Spacer(1, 10))
+
     if st.session_state.lista_circuitos:
         elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Dimensionamento do QDC (NBR 5410)", estilo_sub))
         cabecalhos_qdc = ["CIRC", "DESCRIÇÃO DO CIRCUITO", "POT (W)", "POT (VA)", "CORRENTE (A)", "DISJUNTOR", "CONDUTOR", "FASE", "TENSÃO (V)"]
         dados_qdc_pdf = [cabecalhos_qdc]
         for c in st.session_state.lista_circuitos:
-            dados_qdc_pdf.append([
-                c["Circuito"], c["Descrição"], f"{c['Carga']}W", f"{c['VA']}VA", 
-                f"{c['Ib (A)']}A", f"{c['Disjuntor']} {c['Curva']}", c["Cabo"], c["Fase"], f"{c['Tensão']}V"
-            ])
+            dados_qdc_pdf.append([c["Circuito"], c["Descrição"], f"{c['Carga']}W", f"{c['VA']}VA", f"{c['Ib (A)']}A", f"{c['Disjuntor']} {c['Curva']}", c["Cabo"], c["Fase"], f"{c['Tensão']}V"])
         dados_qdc_pdf.append(["TOTAL", f"Potência Instalada: {pot_total} W", "", "", "", "", "", "", ""])
-        
-        t_qdc = Table(dados_qdc_pdf, colWidths=[40, 210, 60, 60, 65, 75, 65, 45, 60])
+        t_qdc = Table(dados_qdc_pdf, colWidths=)
         t_qdc.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('ALIGN', (1,1), (1,-2), 'LEFT'), ('SPAN', (1,-1), (-1,-1)),
-            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
-            ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
         ]))
         elementos.append(t_qdc)
         elementos.append(Spacer(1, 10))
@@ -235,13 +256,11 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_materiais_civil:
         elementos.append(Paragraph("2. Lote de Materiais da Construção Civil", estilo_sub))
         dados_civil = [["Etapa Civil", "Material Otimizado", "Quantidade", "Unidade"]]
-        for mat in st.session_state.lista_materiais_civil:
-            dados_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
-        t_civ = Table(dados_civil, colWidths=[120, 320, 100, 80])
+        for mat in st.session_state.lista_materiais_civil: dados_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
+        t_civ = Table(dados_civil, colWidths=)
         t_civ.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('ALIGN', (1,1), (1,-1), 'LEFT'), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
         ]))
         elementos.append(t_civ)
         elementos.append(Spacer(1, 10))
@@ -249,13 +268,11 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_materiais_eletricos:
         elementos.append(Paragraph("3. Lote de Materiais e Componentes Elétricos", estilo_sub))
         dados_el = [["Etapa Elétrica", "Componente Detalhado", "Quantidade", "Unidade"]]
-        for m in st.session_state.lista_materiais_eletricos:
-            dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
-        t_el = Table(dados_el, colWidths=[120, 320, 100, 80])
+        for m in st.session_state.lista_materiais_eletricos: dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
+        t_el = Table(dados_el, colWidths=)
         t_el.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('ALIGN', (1,1), (1,-1), 'LEFT'), ('PADDING', (0,0), (-1,-1), 4)
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8), ('PADDING', (0,0), (-1,-1), 4)
         ]))
         elementos.append(t_el)
         elementos.append(Spacer(1, 10))
@@ -267,7 +284,7 @@ def gerar_pdf_completo_obra():
 
     elementos.append(Paragraph("5. Painel de Segurança e Advertências Obrigatórias", estilo_sub))
     caviso = [Paragraph("<b>⚠️ RISCO DE CHOQUE ELÉTRICO</b>", estilo_aviso_tit), Paragraph("• <b>NBR 5410:</b> Modificações sem profissional geram risco.", estilo_aviso_corpo), Paragraph("• <b>NR-10:</b> Intervenções por pessoal não autorizado são proibidas.", estilo_aviso_corpo)]
-    t_av = Table([[caviso]], colWidths=[620])
+    t_av = Table([[caviso]], colWidths=)
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#EF4444')), ('PADDING', (0,0), (-1,-1), 8)]))
     elementos.append(t_av)
     
