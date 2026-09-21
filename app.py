@@ -15,6 +15,13 @@ st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("Gerador Autônomo de Diagramas Unifilares e Multifilares Dinâmicos")
 st.markdown("---")
 
+# Definição Global do Aviso Obrigatório NBR 5410
+AVISO_NBR = (
+    "ADVERTÊNCIA: ADICIONAR OU MODIFICAR COMPONENTES DOS CIRCUITOS ELÉTRICOS PODE GERAR RISCO DE SOBRECARGA OU "
+    "CHOQUE SE NÃO EXECUTADO POR PROFISSIONAL QUALIFICADO. MANTENHA AS PORTAS DO QUADRO SEMPRE FECHADAS. "
+    "VERIFIQUE O FUNCIONAMENTO DO DISPOSITIVO DR MENSALMENTE APERTANDO O BOTÃO DE TESTE (T)."
+)
+
 # Banco de dados de concessionárias brasileiras
 CONCESSIONARIAS = {
     "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000},
@@ -192,7 +199,8 @@ def gerar_pdf_etiqueta_qdc():
     for c in st.session_state.lista_circuitos:
         dados_tabela.append([c["Circuito"], c["Descrição"], f"{c['Carga (W)']}W", f"{c['Tensão (V)']}V", c["Cabo"], c["Disjuntor"]])
     
-    t = Table(dados_tabela, colWidths=)
+    # Correção dos tamanhos: 60 + 220 + 65 + 65 + 65 + 65 = 540
+    t = Table(dados_tabela, colWidths=[60, 220, 65, 65, 65, 65])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -227,7 +235,8 @@ def gerar_pdf_etiqueta_qdc():
         Paragraph("• <b>Item 4.5.3 (NR-10):</b> É terminantemente proibida a intervenção e manutenção em circuitos elétricos por pessoas não autorizadas e desprovidas de EPI/EPC adequados.", estilo_aviso_corpo)
     ]
     
-    t_aviso = Table([[conteudo_aviso]], colWidths=)
+    # Correção dos tamanhos: 540 de largura total
+    t_aviso = Table([[conteudo_aviso]], colWidths=[540])
     t_aviso.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')),
         ('BORDER', (0,0), (-1,-1), 1.5, colors.HexColor('#EF4444')),
