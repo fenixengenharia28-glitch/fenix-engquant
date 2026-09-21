@@ -17,14 +17,12 @@ st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon
 def init_db():
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
-    # Tabela de configurações genéricas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS configuracoes (
             id TEXT PRIMARY KEY,
             dados TEXT
         )
     """)
-    # Tabela estruturada para salvar múltiplos clientes de forma ilimitada
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +73,7 @@ def listar_clientes_db():
     rows = cursor.fetchall()
     conn.close()
     return rows
-# Inicialização obrigatória de todas as variáveis no Session State para evitar NameError e KeyError
+# Inicialização obrigatória de todas as variáveis para evitar NameError, KeyError e AttributeError
 if "lista_materiais_civil" not in st.session_state: st.session_state.lista_materiais_civil = []
 if "lista_materiais_eletricos" not in st.session_state: st.session_state.lista_materiais_eletricos = []
 
@@ -130,30 +128,38 @@ st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("ERP Corporativo Base SQLite: Memorial de Engenharia, Dimensionamento CAD e Segurança")
 st.markdown("---")
 
-st.write("### 👤 Central de Cadastro e Seleção de Clientes")
+st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
 
-# Recupera todos os clientes gravados no SQLite para listagem no Selectbox
 lista_clientes = listar_clientes_db()
-opcoes_clientes = ["-- Criar Novo Cliente / Cadastro --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
+opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
 
-cliente_selecionado = st.selectbox("📂 Selecionar Cliente Existente:", opcoes_clientes)
+col_c1, col_c2 = st.columns([1, 2])
+with col_c1:
+    cliente_selecionado = st.selectbox("📂 Escolher Cliente Salvo:", opcoes_clientes)
 
-# Campos de entrada de texto padronizados
-if cliente_selecionado != "-- Criar Novo Cliente / Cadastro --":
+# Determina os valores com base na seleção
+if cliente_selecionado != "-- Cadastrar Novo Cliente --":
     id_cli = int(cliente_selecionado.split(" - ")[0].replace("ID ", ""))
     dados_cli_atual = [c for c in lista_clientes if c[0] == id_cli][0]
-    cliente_nome = st.text_input("Nome Completo do Cliente:", value=dados_cli_atual[1])
-    cliente_endereco = st.text_input("Endereço da Obra:", value=dados_cli_atual[2])
-    cliente_cidade = st.text_input("Cidade / UF:", value=dados_cli_atual[3])
+    val_nome, val_end, val_cid = dados_cli_atual[1], dados_cli_atual[2], dados_cli_atual[3]
 else:
-    cliente_nome = st.text_input("Nome Completo do Cliente:", placeholder="Ex: João da Silva")
-    cliente_endereco = st.text_input("Endereço da Obra:", placeholder="Ex: Rua A, nº 10")
-    cliente_cidade = st.text_input("Cidade / UF:", placeholder="Ex: Belo Horizonte / MG")
-    if st.button("💾 Gravar e Salvar Cliente para Sempre no Banco"):
-        if cliente_nome and cliente_endereco:
-            inserir_cliente_db(cliente_nome, cliente_endereco, cliente_cidade)
-            st.success("Cliente salvo permanentemente no banco local!")
-            st.rerun()
+    val_nome, val_end, val_cid = "", "", ""
+
+with col_c2:
+    with st.form("form_cliente"):
+        cliente_nome = st.text_input("Nome Completo do Cliente:", value=val_nome)
+        cliente_endereco = st.text_input("Endereço da Obra:", value=val_end)
+        cliente_cidade = st.text_input("Cidade / UF:", value=val_cid)
+        
+        # MUDANÇA DEMANDADA: Botão direto apenas para gravar e salvar
+        if st.form_submit_button("💾 Gravar e Salvar Cliente"):
+            if cliente_nome and cliente_endereco:
+                inserir_cliente_db(cliente_nome, cliente_endereco, cliente_cidade)
+                st.success("Cliente gravado com sucesso no banco de dados!")
+                st.calendar = True
+                st.rerun()
+            else:
+                st.warning("Preencha o Nome e o Endereço antes de salvar.")
 CONCESSIONARIAS = {
     "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
     "ENEL SP (SP) - CNC-OM-BR-24": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
@@ -184,7 +190,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             bitola_final = bitolas_comerciais[idx + 1]
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
-    disjuntores_comerciais = [16, 20, 25, 32, 40, 50, 63, 70, 80]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -343,11 +349,9 @@ def gerar_pdf_completo_obra():
     elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Técnica ({concessionaria_sel})</b>", estilo_sub))
     dados_padrao_pdf = [
         [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Especificação Conforme Norma Técnica Vigente</b>", estilo_celula_esq)],
-        [Paragraph("Norma Técnica Base da Concessionária", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
         [Paragraph("Tipo de Fornecimento / Entrada", estilo_celula), Paragraph(tipo_entrada, estilo_celula_esq)],
         [Paragraph("Cabo do Ramal Geral (Cobre)", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
-        [Paragraph("Disjuntor Geral da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)],
-        [Paragraph("Modelo de Caixa Sugerido", estilo_celula), Paragraph(detalhe_caixa, estilo_celula_esq)]
+        [Paragraph("Disjuntor Geral da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)]
     ]
     t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 500.0])
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
@@ -391,7 +395,6 @@ def gerar_pdf_completo_obra():
         t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
 
-    # RESOLUÇÃO DO NAMEERROR: Variáveis de segurança inicializadas e blindadas de forma local na renderização do PDF
     elementos.append(PageBreak())
     elementos.append(Paragraph("3. Lote de Ativos e Segurança Eletrônica Monitorável", estilo_sub))
     dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
