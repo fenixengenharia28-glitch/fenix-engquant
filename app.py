@@ -15,13 +15,6 @@ st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("Gerador Autônomo de Diagramas Unifilares e Multifilares Dinâmicos")
 st.markdown("---")
 
-# Definição Global do Aviso Obrigatório NBR 5410 (Evita o NameError)
-AVISO_NBR = (
-    "ADVERTÊNCIA: ADICIONAR OU MODIFICAR COMPONENTES DOS CIRCUITOS ELÉTRICOS PODE GERAR RISCO DE SOBRECARGA OU "
-    "CHOQUE SE NÃO EXECUTADO POR PROFISSIONAL QUALIFICADO. MANTENHA AS PORTAS DO QUADRO SEMPRE FECHADAS. "
-    "VERIFIQUE O FUNCIONAMENTO DO DISPOSITIVO DR MENSALMENTE APERTANDO O BOTÃO DE TESTE (T)."
-)
-
 # Banco de dados de concessionárias brasileiras
 CONCESSIONARIAS = {
     "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000},
@@ -149,7 +142,6 @@ def gerar_desenho_multifilar():
     for idx, c in enumerate(st.session_state.lista_circuitos):
         y = (altura_d - 65) - (idx * 45)
         
-        # Correção aqui: removido o y.toFixed defeituoso que causava erro visual
         if idx % 2 == 0:
             d.add(Rect(20, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
             d.add(String(25, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
@@ -185,7 +177,8 @@ def gerar_pdf_etiqueta_qdc():
     estilo_titulo = ParagraphStyle('Titulo', parent=estilos['Heading1'], fontSize=15, textColor=colors.HexColor('#1E3A8A'), spaceAfter=8)
     estilo_sub = ParagraphStyle('Sub', parent=estilos['Heading2'], fontSize=11, textColor=colors.HexColor('#0D9488'), spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
     estilo_corpo = ParagraphStyle('Corpo', parent=estilos['BodyText'], fontSize=8.5, spaceAfter=3)
-    estilo_aviso = ParagraphStyle('Aviso', parent=estilos['BodyText'], fontSize=8.5, textColor=colors.HexColor('#B91C1C'), fontName='Helvetica-Bold', alignment=4)
+    estilo_aviso_tit = ParagraphStyle('AvisoTit', parent=estilos['BodyText'], fontSize=9, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=4)
+    estilo_aviso_corpo = ParagraphStyle('AvisoCorpo', parent=estilos['BodyText'], fontSize=8, textColor=colors.HexColor('#1E293B'), spaceAfter=3)
 
     elementos = []
     
@@ -193,12 +186,13 @@ def gerar_pdf_etiqueta_qdc():
     elementos.append(Paragraph(f"<b>Configuração Geral:</b> Sistema {tipo_entrada} | Distribuidor Geral: {dj_padrao} | Base: {concessionaria_sel}", estilo_corpo))
     elementos.append(Spacer(1, 6))
     
+    # 1. Tabela de Identificação
     elementos.append(Paragraph("1. Tabela Descritiva das Cargas e Circuitos (Porta Interna)", estilo_sub))
     dados_tabela = [["Circ", "Descrição do Campo", "Potência", "Tensão", "Condutor", "Disjuntor"]]
     for c in st.session_state.lista_circuitos:
         dados_tabela.append([c["Circuito"], c["Descrição"], f"{c['Carga (W)']}W", f"{c['Tensão (V)']}V", c["Cabo"], c["Disjuntor"]])
     
-    t = Table(dados_tabela, colWidths=[50, 230, 65, 65, 65, 65])
+    t = Table(dados_tabela, colWidths=)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -213,6 +207,7 @@ def gerar_pdf_etiqueta_qdc():
     elementos.append(t)
     elementos.append(Spacer(1, 10))
     
+    # 2. Diagramas
     elementos.append(Paragraph("2. Diagrama Unifilar do Quadro Geral", estilo_sub))
     elementos.append(gerar_desenho_unifilar())
     elementos.append(Spacer(1, 10))
@@ -221,15 +216,22 @@ def gerar_pdf_etiqueta_qdc():
     elementos.append(gerar_desenho_multifilar())
     elementos.append(Spacer(1, 10))
     
-    elementos.append(Paragraph("4. Sinalização Compulsória de Segurança (Item 6.1.5.1)", estilo_sub))
+    # 4. Painel de Segurança e Advertências Expandido (NBR 5410 & NR-10)
+    elementos.append(Paragraph("4. Painel de Segurança e Advertências Obrigatórias", estilo_sub))
     
-    # Correção completa e definitiva da interpolação de strings sem quebra de NameError
-    AVISO_TEXTO = [[Paragraph(f"<b>⚠️ {AVISO_NBR}</b>", estilo_aviso)]]
-    t_aviso = Table(AVISO_TEXTO, colWidths=[540])
+    conteudo_aviso = [
+        Paragraph("<b>⚠️ RISCO DE CHOQUE ELÉTRICO - PERIGO DE MORTE</b>", estilo_aviso_tit),
+        Paragraph("• <b>Item 6.1.5.1 (NBR 5410):</b> Adicionar ou modificar componentes dos circuitos deste quadro pode gerar severo risco de sobrecarga, incêndio ou choque elétrico se não for executado por um profissional qualificado.", estilo_aviso_corpo),
+        Paragraph("• <b>Proteção Diferencial (DR):</b> Este quadro contém dispositivo IDR de alta sensibilidade (30mA). Verifique o seu funcionamento mensalmente pressionando o botão de teste (T). Se o disjuntor não desarmar, chame assistência técnica imediatamente.", estilo_aviso_corpo),
+        Paragraph("• <b>Operação e Manutenção:</b> Mantenha as tampas e portas protetoras do QDC sempre fechadas. Circuitos energizados expostos apresentam perigo iminente. Painel mapeado e homologado pela Fênix Engenharia.", estilo_aviso_corpo),
+        Paragraph("• <b>Item 4.5.3 (NR-10):</b> É terminantemente proibida a intervenção e manutenção em circuitos elétricos por pessoas não autorizadas e desprovidas de EPI/EPC adequados.", estilo_aviso_corpo)
+    ]
+    
+    t_aviso = Table([[conteudo_aviso]], colWidths=)
     t_aviso.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')),
         ('BORDER', (0,0), (-1,-1), 1.5, colors.HexColor('#EF4444')),
-        ('PADDING', (0,0), (-1,-1), 8)
+        ('PADDING', (0,0), (-1,-1), 10)
     ]))
     elementos.append(t_aviso)
     
