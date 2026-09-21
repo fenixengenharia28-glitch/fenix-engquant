@@ -43,8 +43,17 @@ with st.sidebar:
     st.write("---")
     st.dataframe(pd.DataFrame(st.session_state.funcionarios), use_container_width=True)
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP Corporativo: Dimensionamento de Condutores, QDC e Alvenaria")
+st.subheader("ERP Corporativo: Dimensionamento de Condutores, QDC e Alvenaria Geral da Obra")
 st.markdown("---")
+
+st.write("### 👤 Cadastro e Homologação do Cliente")
+col_cl1, col_cl2, col_cl3 = st.columns(3)
+with col_cl1:
+    cliente_nome = st.text_input("Nome Completo do Cliente:", value="Condomínio Residencial Bella Vista")
+with col_cl2:
+    cliente_endereco = st.text_input("Endereço da Obra:", value="Av. das Palmeiras, nº 450 - Lote 12")
+with col_cl3:
+    cliente_cidade = st.text_input("Cidade / UF:", value="Belo Horizonte / MG")
 
 CONCESSIONARIAS = {
     "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
@@ -53,12 +62,11 @@ CONCESSIONARIAS = {
     "CPFL (Paulista)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
     "LIGHT (Rio de Janeiro)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT"}
 }
+st.markdown("---")
 def calcular_bitola_e_disjuntor(potencia, tensao, comprimento, tipo_carga):
-    # 1. Corrente de Projeto (Ib)
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
     ib = potencia / (tensao * fp)
     
-    # 2. Bitola Mínima Obrigatória por Norma e Capacidade de Corrente (PVC em Eletroduto)
     if tipo_carga == "Iluminação":
         bitola_inicial = 1.5
         corrente_max_cabo = 17.5
@@ -66,27 +74,23 @@ def calcular_bitola_e_disjuntor(potencia, tensao, comprimento, tipo_carga):
         bitola_inicial = 2.5
         corrente_max_cabo = 24.0
         
-    # Ajuste de bitola por capacidade térmica de corrente (Tabela 36 - NBR 5410)
     bitolas_comerciais = [1.5, 2.5, 4.0, 6.0, 10.0, 16.0]
     capacidades_corrente = [17.5, 24.0, 32.0, 41.0, 57.0, 76.0]
     
     bitola_final = bitola_inicial
     iz_cabo = corrente_max_cabo
     
-    for b, cap in zip(bitolas_comerciais, capacidades_corrente):
+    for b, cap in zip(bitolas_comerciais, capacities_corrente := capacidades_corrente):
         if b >= bitola_inicial and cap >= ib:
             bitola_final = b
             iz_cabo = cap
             break
 
-    # 3. Verificação por Queda de Tensão Admissível (Limite de 2% para circuitos terminais)
-    # Queda de tensão aproximada em condutores de cobre (Fórmula simplificada: dV% = (2 * rho * L * Ib * 100) / (V * S))
-    rho = 1 / 58.0  # Resistividade do cobre
+    rho = 1 / 58.0
     while True:
         dv_perc = (2 * rho * comprimento * ib * 100) / (tensao * bitola_final)
         if dv_perc <= 2.0 or bitola_final >= 16.0:
             break
-        # Se ultrapassar 2%, sobe para a próxima bitola comercial
         idx = bitolas_comerciais.index(bitola_final)
         if idx < len(bitolas_comerciais) - 1:
             bitola_final = bitolas_comerciais[idx + 1]
@@ -94,14 +98,13 @@ def calcular_bitola_e_disjuntor(potencia, tensao, comprimento, tipo_carga):
         else:
             break
 
-    # 4. Dimensionamento do Disjuntor (Critério: Ib <= In <= Iz)
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
             disjuntor_final = dj
             break
-        elif dj >= ib: # Margem de segurança caso o cabo esteja muito próximo do limite
+        elif dj >= ib:
             disjuntor_final = dj
             break
             
@@ -140,14 +143,44 @@ with tab_civil:
             tipo_tijolo = st.selectbox("Tipo de Alvenaria:", ["Tijolo Cerâmico Baiano", "Bloco de Concreto"])
             espessura_contrapiso = st.number_input("Espessura do Contrapiso (cm):", min_value=3.0, value=5.0, step=0.5)
 
-        if st.button("📊 Processar Cubagem Global"):
-            st.session_state.lista_materiais_civil = [
-                {"Etapa": "Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": round(qtd_sapatas * 0.4, 2), "Unidade": "m³"},
-                {"Etapa": "Alvenaria", "Material": "Tijolos/Blocos de Vedação", "Quantidade": math.ceil(perimetro_paredes * pe_direito * 25), "Unidade": "un"},
-                {"Etapa": "Acabamento Civil", "Material": "Piso Porcelanato Retificado Comercial", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"}
-            ]
+        if st.button("📊 Processar Cubagem Global Completa"):
+            st.session_state.lista_materiais_civil = []
+            vol_sapatas = qtd_sapatas * 0.4
+            vol_piso = area_obra * (espessura_contrapiso / 100.0)
+            area_parede = perimetro_paredes * pe_direito
+            total_tijolos = math.ceil(area_parede * (25 if "Tijolo" in tipo_tijolo else 12.5) * 1.1)
+            qtd_portas_int = max(2, math.ceil(area_obra * 0.05))
+            qtd_janelas = max(2, math.ceil(area_obra * 0.06))
+            
+            # ATUALIZAÇÃO DEMANDADA: Retornar TODOS os materiais para fazer uma construção civil do zero
+            st.session_state.lista_materiais_civil.extend([
+                {"Etapa": "01. Locação e Infra", "Material": "Madeira de Pinus para Gabarito / Sarrafo (Barra 3m)", "Quantidade": math.ceil(perimetro_paredes * 0.5), "Unidade": "un"},
+                {"Etapa": "01. Locação e Infra", "Material": "Arame Galvanizado para Alinhamento", "Quantidade": 2, "Unidade": "rl"},
+                {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa (Fundações e Sapatas)", "Quantidade": round(vol_sapatas, 2), "Unidade": "m³"},
+                {"Etapa": "02. Infraestrutura", "Material": "Aço CA-50 Cortado e Dobrado (Sapatas e Arranques)", "Quantidade": round(qtd_sapatas * 25.0, 1), "Unidade": "kg"},
+                {"Etapa": "02. Infraestrutura", "Material": "Impermeabilizante de Cimento Elástico para Alicerces (Vedacit)", "Quantidade": max(1, math.ceil(perimetro_paredes * 0.15)), "Unidade": "bd"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Concreto Fck=20MPa (Contrapiso e Vigas)", "Quantidade": round(vol_piso, 2), "Unidade": "m³"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Cimento CP II-E-32 (Saco 50kg) - Canteiro Geral", "Quantidade": math.ceil(area_obra * 1.1), "Unidade": "sc"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Areia Média Lavada Comercial", "Quantidade": round(area_obra * 0.12, 1), "Unidade": "m³"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Brita No 1 para Concretagem", "Quantidade": round(area_obra * 0.14, 1), "Unidade": "m³"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Tela Eletrosoldada Q-92 para Armação de Piso", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Madeira Pinus para Caixaria de Vigas (Tábua 30cm x 3m)", "Quantidade": math.ceil(perimetro_paredes * 0.4), "Unidade": "un"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Prego Gerdau Polido com Cabeça 18x27", "Quantidade": max(2, math.ceil(area_obra * 0.06)), "Unidade": "kg"},
+                {"Etapa": "04. Alvenaria", "Material": "Tijolos/Blocos de Vedação Estrutural", "Quantidade": total_tijolos, "Unidade": "un"},
+                {"Etapa": "04. Alvenaria", "Material": "Cal Hidratada CH-I para Argamassa de Assentamento", "Quantidade": math.ceil(total_tijolos * 0.016), "Unidade": "sc"},
+                {"Etapa": "05. Fechamento", "Material": "Porta de Madeira Completa com Batente Interna (0,80x2,10m)", "Quantidade": qtd_portas_int, "Unidade": "un"},
+                {"Etapa": "05. Fechamento", "Material": "Porta Externa Alumínio Premium Almofadada (0,90x2,10m)", "Quantidade": 1, "Unidade": "un"},
+                {"Etapa": "05. Fechamento", "Material": "Janela Veneziana Alumínio 3 Folhas (1,20x1,00m)", "Quantidade": qtd_janelas, "Unidade": "un"},
+                {"Etapa": "05. Fechamento", "Material": "Fechadura Metal Concept Externa/Interna Completa", "Quantidade": qtd_portas_int + 1, "Unidade": "un"},
+                {"Etapa": "05. Fechamento", "Material": "Espuma Expansiva de Poliuretano para Fixação (500ml)", "Quantidade": math.ceil((qtd_portas_int + qtd_janelas) * 0.8), "Unidade": "tb"},
+                {"Etapa": "06. Acabamento", "Material": "Piso Porcelanato Retificado Comercial", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"},
+                {"Etapa": "06. Acabamento", "Material": "Argamassa Colante AC-III (Saco 20kg)", "Quantidade": math.ceil(area_obra * 1.15 * 5.0 / 20.0), "Unidade": "sc"},
+                {"Etapa": "06. Acabamento", "Material": "Tinta Látex Acrílica Premium Fosca (Lata 18L)", "Quantidade": math.ceil((area_parede * 2) * 0.25 / 18.0), "Unidade": "lt"}
+            ])
+            st.success("Memorial civil completo do zero gerado!")
             st.rerun()
     else:
+        st.write("#### 🏠 Lançamento de Ambientes da Prancha Customizada")
         cc1, cc2, cc3, cc4 = st.columns(4)
         with cc1: nome_c = st.text_input("Nome do Cômodo:", placeholder="Ex: Quarto Master")
         with cc2: comp_c = st.number_input("Comprimento (m):", min_value=0.5, value=4.0, step=0.5)
@@ -160,17 +193,29 @@ with tab_civil:
         if st.session_state.comodos:
             st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
             if st.button("📊 Processar Prancha de Ambientes"):
+                st.session_state.lista_materiais_civil = []
                 area_total = sum(c["Comprimento"] * c["Largura"] for c in st.session_state.comodos)
-                st.session_state.lista_materiais_civil = [
-                    {"Etapa": "Estrutura e Piso (Prancha)", "Material": "Concreto Fck=20MPa (Contrapiso)", "Quantidade": round(area_total * 0.05, 2), "Unidade": "m³"},
-                    {"Etapa": "Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total * 1.1, 1), "Unidade": "m²"}
-                ]
+                perimetro_total = sum(((c["Comprimento"] * 2) + (c["Largura"] * 2)) for c in st.session_state.comodos)
+                total_esq = sum(c["Esquadrias"] for c in st.session_state.comodos)
+                
+                st.session_state.lista_materiais_civil.extend([
+                    {"Etapa": "01. Infraestrutura (Prancha)", "Material": "Concreto Fundações (Cômodos)", "Quantidade": round(area_total * 0.12 * 0.4, 2), "Unidade": "m³"},
+                    {"Etapa": "02. Estrutura e Piso (Prancha)", "Material": "Concreto Fck=20MPa (Contrapiso)", "Quantidade": round(area_total * 0.05, 2), "Unidade": "m³"},
+                    {"Etapa": "02. Estrutura e Piso (Prancha)", "Material": "Cimento CP II (Saco 50kg) - Obra", "Quantidade": math.ceil(area_total * 1.1), "Unidade": "sc"},
+                    {"Etapa": "02. Estrutura e Piso (Prancha)", "Material": "Areia Média Lavada Comercial", "Quantidade": round(area_total * 0.12, 1), "Unidade": "m³"},
+                    {"Etapa": "02. Estrutura e Piso (Prancha)", "Material": "Brita No 1 para Concretagem", "Quantidade": round(area_total * 0.14, 1), "Unidade": "m³"},
+                    {"Etapa": "03. Alvenaria (Prancha)", "Material": "Tijolos Cerâmicos de Vedação", "Quantidade": math.ceil(perimetro_total * 2.8 * 25), "Unidade": "un"},
+                    {"Etapa": "04. Fechamento (Prancha)", "Material": "Kit Porta/Janela Esquadria Pronta", "Quantidade": int(total_esq), "Unidade": "un"},
+                    {"Etapa": "04. Fechamento (Prancha)", "Material": "Espuma Expansiva de Poliuretano (500ml)", "Quantidade": math.ceil(total_esq * 0.8), "Unidade": "tb"},
+                    {"Etapa": "05. Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total * 1.1, 1), "Unidade": "m²"}
+                ])
                 area_obra = area_total
                 st.rerun()
     if st.session_state.lista_materiais_civil:
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
 with tab_eletrica:
     st.write("### 🎛️ Modos de Cálculo do Sistema de Cabeamento e Proteção")
+    # CORREÇÃO DEMANDADA: Erro de sintaxe corrigido eliminando a atribuição de morsa inválida
     modo_eletrico = st.radio("Escolha o modo de lançamento elétrico:", ["Fazer o cálculo da casa toda (Planta Modelo Otimizada)", "Lançar circuitos separados (Cálculo Individual Automático)"], horizontal=True)
     concessionaria_sel = st.selectbox("🔌 Concessionária Distribuidora de Energia:", list(CONCESSIONARIAS.keys()))
     dados_c = CONCESSIONARIAS[concessionaria_sel]
@@ -178,7 +223,6 @@ with tab_eletrica:
     
     if modo_eletrico == "Fazer o cálculo da casa toda (Planta Modelo Otimizada)":
         st.write("#### 🏠 Cubagem Computacional da Prancha de Cargas Completa")
-        st.write("O sistema aplicará a NBR 5410 para dimensionar automaticamente todos os condutores por capacidade de condução de corrente e queda de tensão.")
         if st.button("🚀 Processar e Dimensionar Casa Toda"):
             planta_modelo = [
                 {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO - Quartos e Corredor", "POT_W": 1180, "TIPO": "Monofásico", "TENSÃO": dados_c["fase"], "COMP": 15},
@@ -197,7 +241,7 @@ with tab_eletrica:
                     "DISJ": f"{disj}A", "CURVA": curva, "COND": f"{bitola} mm²", "FASE": "RS" if item["TIPO"]=="Bifásico" else "R",
                     "TENSÃO": item["TENSÃO"], "IB": ib_c, "COMP": item["COMP"]
                 })
-            st.success("Planta modelo calculada com sucesso!")
+            st.success("Planta completa dimensionada!")
             st.rerun()
     else:
         st.write("#### 🛠️ Lançamento de Circuito Individualizado com Bitola e Disjuntor Automáticos")
@@ -207,8 +251,8 @@ with tab_eletrica:
             tipo_carga_sel = st.selectbox("Tipo de Carga:", ["Iluminação", "TUG - Tomada Uso Geral", "TUE - Tomada Especial"])
         with col_an2:
             pot_w_c = st.number_input("Potência Total Adensada (W):", min_value=100, value=2200, step=100)
-        with cc_v := col_an3:
-            tipo_ligacao = st.selectbox("Tipo de Ligação Elétrica:", ["Monofásico (127V/220V)", "Bifásico (220V/380V)"])
+        with col_an3:
+            tipo_ligacao = st.selectbox("Tipo de Ligação Elétrica:", ["Monofásico", "Bifásico"])
             v_utilizada = dados_c["linha"] if "Bifásico" in tipo_ligacao else dados_c["fase"]
         with col_an4:
             comprimento_m = st.number_input("Distância do QDC até a Carga (m):", min_value=1, value=15, step=1)
@@ -219,9 +263,7 @@ with tab_eletrica:
                 tipo_txt = "Bifásico" if "Bifásico" in tipo_ligacao else "Monofásico"
                 fase_atrib_txt = "RS" if tipo_txt == "Bifásico" else "R"
                 
-                # Chamada do Motor Normativo NBR 5410
                 bitola, disj, curva, ib_c = calcular_bitola_e_disjuntor(pot_w_c, v_utilizada, comprimento_m, tipo_carga_sel)
-                
                 st.session_state.lista_circuitos_calc.append({
                     "CIRC": c_num_idx, "DESCRIÇÃO": desc_c, "POT_W": pot_w_c, "TIPO": tipo_txt,
                     "DISJ": f"{disj}A", "CURVA": curva, "COND": f"{bitola} mm²", "FASE": fase_atrib_txt,
@@ -233,13 +275,13 @@ with tab_eletrica:
     if st.session_state.lista_circuitos_calc:
         st.write("#### 📊 Quadro de Circuitos Dimensionados por Norma")
         st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
+
 try: area_obra_ref = area_obra
 except: area_obra_ref = 70.0
 
 pot_total = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc)
 tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
 detalhe_caixa = "Caixa Tipo 'F'"
-
 recalcular_materials = recalcular_materiais_brutos_eletricos(area_obra_ref, tipo_entrada, dj_padrao, st.session_state.lista_circuitos_calc)
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
@@ -255,9 +297,19 @@ def gerar_pdf_completo_obra():
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS</b>", estilo_titulo), Spacer(1, 4)]
     
-    func_txt = " | ".join([f"{f['Função']}: {f['Nome']} ({f['CREA/RE']})" for f in st.session_state.funcionarios])
-    elementos.append(Paragraph(f"<b>Responsáveis Técnicos:</b> {func_txt}", estilo_celula_esq))
+    # ATUALIZAÇÃO DEMANDADA: Timbre oficial dos dados do cliente homologado no PDF
+    dados_cliente_tabela = [
+        [Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]
+    ]
+    t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
+    t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
+    elementos.append(t_cli)
+    elementos.append(Spacer(1, 6))
     
+    func_txt = " | ".join([f"{f['Função']}: {f['Nome']} ({f['CREA/RE']})" for f in st.session_state.funcionarios])
+    elementos.append(Paragraph(f"<b>Equipe Responsável:</b> {func_txt}", estilo_celula_esq))
+    
+    elementos.append(Paragraph(f"<b>Padrão de Entrada ({concessionaria_sel})</b>", estilo_sub))
     dados_padrao_pdf = [
         [Paragraph("<b>Parâmetro</b>", estilo_celula), Paragraph("<b>Especificação Técnica</b>", estilo_celula_esq)],
         [Paragraph("Tipo de Fornecimento", estilo_celula), Paragraph(tipo_entrada, estilo_celula_esq)],
@@ -291,7 +343,6 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # MUDANÇA DEMANDADA: Centralizar todas estas informações no meio conforme modelo anexo
         texto_centralizado_modelo = f"<b>Potência Instalada Total: {pot_total} W | {tot_r}VA | {tot_s}VA</b>"
         dados_qdc_pdf.append([Paragraph(texto_centralizado_modelo, estilo_celula)] + [""] * 11)
         
@@ -333,7 +384,7 @@ def gerar_pdf_completo_obra():
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão")
     if st.session_state.lista_circuitos_calc:
-        st.download_button(label="📥 Baixar Memorial Técnico Consolidado (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia.pdf", mime="application/pdf", key="btn_pdf_real")
+        st.download_button(label="📥 Baixar Memorial Técnico Consolidado com Dados do Cliente (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_cliente.pdf", mime="application/pdf", key="btn_pdf_real")
         if st.button("🗑️ Resetar Todo O Sistema", key="btn_clear_total"):
             st.session_state.lista_circuitos_calc = []
             st.session_state.lista_materiais_civil = []
