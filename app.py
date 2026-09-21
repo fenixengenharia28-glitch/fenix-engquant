@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração da página - DEVE ser o primeiro comando Streamlit
+# Configuração da página - DEVE ser obrigatoriamente o primeiro comando Streamlit
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
-# 1. CRIAÇÃO DOS DATASET DE REFERÊNCIA NATIVOS E CORRIGIDOS
+# 1. BANCO DE DADOS DE REFERÊNCIA NATIVOS
 df_cabos = pd.DataFrame({
     "Seção Nominal (mm²)": [1.5, 2.5, 4.0, 6.0, 10.0, 16.0, 25.0, 35.0],
     "Aplicação Mínima": ["Iluminação", "Tomadas Gerais (TUG)", "Circuitos Pesados", "Ar/Chuveiro", "Alimentação QDC", "Entrada Padrão", "Entrada Tri", "Entrada Industrial"],
@@ -12,7 +12,7 @@ df_cabos = pd.DataFrame({
 })
 
 df_agrupamento = pd.DataFrame({
-    "Nº de Circuitos no Tubo":,
+    "Nº de Circuitos no Tubo": [1, 2, 3, 4, 5],
     "Fator de Redução (Fg)": [1.00, 0.80, 0.70, 0.65, 0.60]
 })
 
@@ -49,7 +49,7 @@ with aba1:
     col1, col2, col3 = st.columns(3)
     with col1:
         etapas_disponiveis = list(df_servicos["Etapa da Obra"].unique())
-        etapa_sel = st.selectbox("Selecione a Etapa:", etapas_disponiveis, key="sb_etapa_civil")
+        etapa_sel = st.selectbox("Selecione a Etapa:", Copy to Clipboardetapas_disponiveis, key="sb_etapa_civil")
         
         servicos_filtrados = df_servicos[df_servicos["Etapa da Obra"] == etapa_sel]["Serviço / Insumo"].tolist()
         servico_sel = st.selectbox("Selecione o Serviço Correspondente:", servicos_filtrados, key="sb_serv_civil")
@@ -92,7 +92,7 @@ with aba2:
         
     with col2_el:
         potencia_watts = st.number_input("Potência Estimada (W):", min_value=0, value=2200, step=100, key="ni_pot_el")
-        tensao_volts = st.selectbox("Tensão Nominal (V):", [127, 220, 380], key="sb_tensao_el")
+        tensao_volts = st.selectbox("Tensão Nominal (V):", [127, 220], key="sb_tensao_el")
         
     with col3_el:
         n_agrupados = st.slider("Quantidade de Circuitos no mesmo Eletroduto:", 1, 5, 2, key="sl_agrupamento")
