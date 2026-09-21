@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
-# 1. BANCO DE DADOS DE REFERÊNCIA (TABELAS DE CONSULTA E DIMENSIONAMENTO)
+# 1. BANCO DE DADOS DE REFERÊNCIA
 TABELA_CABOS = pd.DataFrame({
     "Seção Nominal (mm²)": [1.5, 2.5, 4.0, 6.0, 10.0, 16.0, 25.0, 35.0],
     "Aplicação Mínima": ["Iluminação", "Tomadas Gerais (TUG)", "Circuitos Pesados", "Ar/Chuveiro", "Alimentação QDC", "Entrada Padrão", "Entrada Tri", "Entrada Industrial"],
@@ -44,19 +44,20 @@ with aba1:
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        etapa_sel = st.selectbox("Selecione a Etapa:", TABELA_SERVICOS_CIVIL["Etapa da Obra"].unique())
+        etapa_sel = st.selectbox("Selecione a Etapa:", TABELA_SERVICOS_CIVIL["Etapa da Obra"].unique(), key="etapa_civil_sel")
         servicos_filtrados = TABELA_SERVICOS_CIVIL[TABELA_SERVICOS_CIVIL["Etapa da Obra"] == etapa_sel]["Serviço / Insumo"].tolist()
-        servico_sel = st.selectbox("Selecione o Serviço Correspondente:", servicos_filtrados)
+        servico_sel = st.selectbox("Selecione o Serviço Correspondente:", servicos_filtrados, key="serv_civil_sel")
     with col2:
-        qtd_solicitada = st.number_input("Insira a Quantidade da Carga/Área:", min_value=0.0, value=10.0, step=1.0)
-        unidade_padrao = TABELA_SERVICOS_CIVIL[TABELA_SERVICOS_CIVIL["Serviço / Insumo"] == servico_sel]["Unidade"].values[0]
-        st.write(f"**Unidade Métrica:** {unidade_padrao}")
+        qtd_solicitada = st.number_input("Insira a Quantidade da Carga/Área:", min_value=0.0, value=10.0, step=1.0, key="qtd_civil_input")
+        unidade_lista = TABELA_SERVICOS_CIVIL[TABELA_SERVICOS_CIVIL["Serviço / Insumo"] == servico_sel]["Unidade"].values
+        unidade_padrao = str(unidade_lista[0]) if len(unidade_lista) > 0 else "un"
+        st.info(f"Unidade Métrica: {unidade_padrao}")
     with col3:
-        preco_unitario = st.number_input("Preço Unitário Praticado (R$):", min_value=0.0, value=50.0, step=5.0)
+        preco_unitario = st.number_input("Preço Unitário Praticado (R$):", min_value=0.0, value=50.0, step=5.0, key="preco_civil_input")
         
     total_servico = qtd_solicitada * preco_unitario
     
-    if st.button("Lançar Serviço Civil"):
+    if st.button("Lançar Serviço Civil", key="btn_lancar_civil"):
         st.session_state.servicos_lancados.append({
             "Módulo": "Construção Civil",
             "Serviço/Item": f"[{etapa_sel}] {servico_sel}",
@@ -68,6 +69,7 @@ with aba1:
             "Corrente (A)": 0.0
         })
         st.success("Item civil computado com sucesso!")
+        st.rerun()
 
 # ABA 2: MAPEAMENTO E DIMENSIONAMENTO ELÉTRICO
 with aba2:
@@ -75,18 +77,19 @@ with aba2:
     
     col1_el, col2_el, col3_el = st.columns(3)
     with col1_el:
-        id_circuito = st.text_input("Nome do Circuito:", placeholder="Ex: TUGs Cozinha, Chuveiro Master")
-        tipo_carga = st.selectbox("Classificação da Carga:", ["Iluminação", "Tomadas Gerais (TUG)", "Circuitos Pesados / TUE"])
+        id_circuito = st.text_input("Nome do Circuito:", placeholder="Ex: TUGs Cozinha, Chuveiro Master", key="nome_circ_input")
+        tipo_carga = st.selectbox("Classificação da Carga:", ["Iluminação", "Tomadas Gerais (TUG)", "Circuitos Pesados / TUE"], key="tipo_carga_sel")
     with col2_el:
-        potencia_watts = st.number_input("Potência Estimada (W):", min_value=0, value=2200, step=100)
-        tensao_volts = st.selectbox("Tensão Nominal (V):", [127, 220])
+        potencia_watts = st.number_input("Potência Estimada (W):", min_value=0, value=2200, step=100, key="potencia_el_input")
+        tensao_volts = st.selectbox("Tensão Nominal (V):", [127, 220], key="tensao_el_sel")
     with col3_el:
-        n_agrupados = st.slider("Quantidade de Circuitos no mesmo Eletroduto:", 1, 5, 2)
+        n_agrupados = st.slider("Quantidade de Circuitos no mesmo Eletroduto:", 1, 5, 2, key="agrupamento_el_slider")
         
-    f_reducao = TABELA_AGRUPAMENTO[TABELA_AGRUPAMENTO["Nº de Circuitos no Tubo"] == n_agrupados]["Fator de Redução (Fg)"].values[0]
+    f_reducao_lista = TABELA_AGRUPAMENTO[TABELA_AGRUPAMENTO["Nº de Circuitos no Tubo"] == n_agrupados]["Fator de Redução (Fg)"].values
+    f_reducao = float(f_reducao_lista[0]) if len(f_reducao_lista) > 0 else 1.0
     
-    corrente_projeto = potencia_watts / tensao_volts
-    corrente_corrigida = corrente_projeto / f_reducao
+    corrente_projeto = potencia_watts / tensao_volts if tensao_volts > 0 else 0
+    corrente_corrigida = corrente_projeto / f_reducao if f_reducao > 0 else corrente_projeto
     
     secao_min = 1.5 if tipo_carga == "Iluminação" else 2.5
     secao_calculada = secao_min
@@ -96,20 +99,24 @@ with aba2:
             secao_calculada = linha["Seção Nominal (mm²)"]
             break
 
-    st.info(f"📊 **Análise em Tempo Real:** Corrente Ib: {corrente_projeto:.2f}A | Corrente Corrigida: {corrente_corrigida:.2f}A | Cabo sugerido: {secao_calculada} mm²")
+    st.info(f"📊 Análise: Corrente Ib: {corrente_projeto:.2f}A | Corrente Corrigida: {corrente_corrigida:.2f}A | Cabo sugerido: {secao_calculada} mm²")
     
-    if st.button("Salvar e Dimensionar Circuito"):
-        st.session_state.circuitos.append({
-            "Módulo": "Elétrica",
-            "Serviço/Item": f"Circuito: {id_circuito} ({tipo_carga}) - {potencia_watts}W",
-            "Quantidade": 1.0,
-            "Unidade": "un",
-            "Preço Unitário (R$)": round(corrente_projeto * 12.0, 2),
-            "Total (R$)": round(corrente_projeto * 12.0, 2),
-            "Cabo (mm²)": str(secao_calculada),
-            "Corrente (A)": round(corrente_projeto, 2)
-        })
-        st.success(f"Circuito {id_circuito} integrado ao barramento de proteção!")
+    if st.button("Salvar e Dimensionar Circuito", key="btn_lancar_eletrico"):
+        if id_circuito:
+            st.session_state.circuitos.append({
+                "Módulo": "Elétrica",
+                "Serviço/Item": f"Circuito: {id_circuito} ({tipo_carga}) - {potencia_watts}W",
+                "Quantidade": 1.0,
+                "Unidade": "un",
+                "Preço Unitário (R$)": round(corrente_projeto * 12.0, 2),
+                "Total (R$)": round(corrente_projeto * 12.0, 2),
+                "Cabo (mm²)": str(secao_calculada),
+                "Corrente (A)": round(corrente_projeto, 2)
+            })
+            st.success(f"Circuito {id_circuito} integrado ao barramento!")
+            st.rerun()
+        else:
+            st.error("Por favor, dê um nome para o circuito antes de salvar.")
 
 # ABA 3: CENTRAL DE TABELAS TÉCNICAS
 with aba3:
@@ -138,9 +145,9 @@ with aba4:
         st.metric(label="Valor Orçado Total (Fênix Engenharia)", value=f"R$ {custo_total_geral:,.2f}")
         
         csv_buffer = df_final.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Exportar Relatório Técnico Consolidado", data=csv_buffer, file_name="orcamento_fenix_pro.csv", mime="text/csv")
+        st.download_button("📥 Exportar Relatório Técnico Consolidado", data=csv_buffer, file_name="orcamento_fenix_pro.csv", mime="text/csv", key="btn_download_csv")
         
-        if st.button("Zerar Sistema"):
+        if st.button("Zerar Sistema", key="btn_zerar_tudo"):
             st.session_state.circuitos = []
             st.session_state.servicos_lancados = []
             st.rerun()
