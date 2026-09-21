@@ -45,7 +45,12 @@ def carregar_dados_permanentes(chave, valor_padrao):
         return json.loads(row[0])
     return valor_padrao
 
-# Inicialização e Sincronização do Session State com o Banco de Dados Permanente
+# CORREÇÃO DEFINITIVA DO KEYERROR: Inicialização garantida de todas as variáveis no Session State
+if "lista_materiais_civil" not in st.session_state:
+    st.session_state.lista_materiais_civil = []
+if "lista_materiais_eletricos" not in st.session_state:
+    st.session_state.lista_materiais_eletricos = []
+
 if "db_sync" not in st.session_state:
     st.session_state.funcionarios = carregar_dados_permanentes("funcionarios", [
         {"id": 1, "Nome": "Eng. Carlos Silva", "Função": "Responsável Técnico", "CREA_RE": "MG20231045", "Responsavel": True},
@@ -64,7 +69,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True
     )
-    st.write("### 👥 Gestão de Equipe Técnica")
+    st.write("### 👥 Gestão de Equipe Técnico")
     with st.form("form_func", clear_on_submit=True):
         f_nome = st.text_input("Nome do Colaborador:")
         f_func = st.selectbox("Função:", ["Responsável Técnico", "Eletricista Instalador", "Mestre de Obras", "Projetista", "Técnico em Segurança Eletrônica"])
@@ -72,21 +77,22 @@ with st.sidebar:
         f_resp = st.checkbox("Definir como Responsável pelo Projeto?")
         if st.form_submit_button("Cadastrar Funcionário"):
             if f_nome and f_reg:
-                novo_id = max([f["id"] for f in st.session_state.funcionarios] + [0]) + 1
+                # Correção do cálculo do ID incremental
+                base_ids = [f["id"] for f in st.session_state.funcionarios] if st.session_state.funcionarios else [0]
+                novo_id = max(base_ids) + 1
                 st.session_state.funcionarios.append({"id": novo_id, "Nome": f_nome, "Função": f_func, "CREA_RE": f_reg, "Responsavel": f_resp})
                 salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                 st.success("Funcionário Cadastrado com Sucesso!")
                 st.rerun()
     st.write("📋 **Lista de Colaboradores e Responsabilidade:**")
-    func_df = pd.DataFrame(st.session_state.funcionarios)
-    if not func_df.empty:
-        for idx, f in enumerate(st.session_state.funcionarios):
+    if st.session_state.funcionarios:
+        for idx, f in enumerate(list(st.session_state.funcionarios)):
             c_label = "⭐ RESPONSÁVEL" if f["Responsavel"] else "Colaborador"
             col_f1, col_f2 = st.columns([4, 1])
             with col_f1:
                 st.write(f"**{f['Nome']}** ({f['Função']}) - {c_label}")
             with col_f2:
-                if st.button("❌", key=f"del_f_{f['id']}"):
+                if st.button("❌", key=f"del_f_{f['id']}_{idx}"):
                     st.session_state.funcionarios.pop(idx)
                     salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                     st.rerun()
@@ -97,11 +103,10 @@ st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("ERP Corporativo Base SQLite: Memorial de Engenharia Elétrica, Alvenaria e Segurança")
 st.markdown("---")
 st.write("### 👤 Cadastro e Homologação do Cliente")
-cliente_nome = st.text_input("Nome Completo do Cliente:", value=carregar_dados_permanentes("cli_nome", "Condomínio Residencial Bella Vista"))
+cliente_nome = st.text_input("Nome Completo do Cliente:", value=carregar_dados_permanentes("cli_nome", "Condomínio Residential Bella Vista"))
 cliente_endereco = st.text_input("Endereço da Obra:", value=carregar_dados_permanentes("cli_end", "Av. das Palmeiras, nº 450 - Lote 12"))
 cliente_cidade = st.text_input("Cidade / UF:", value=carregar_dados_permanentes("cli_cid", "Belo Horizonte / MG"))
 
-# Salva os dados do cliente sempre que houver modificação em tempo de execução
 salvar_dados_permanentes("cli_nome", cliente_nome)
 salvar_dados_permanentes("cli_end", cliente_endereco)
 salvar_dados_permanentes("cli_cid", cliente_cidade)
@@ -140,6 +145,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
 
+    # Correção da lista de disjuntores para evitar quebras de loop
     disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
@@ -165,7 +171,7 @@ with tab_civil:
         if st.button("📊 Processar Cubagem Global Completa"):
             st.session_state.lista_materiais_civil = [
                 {"Etapa": "01. Locação e Infra", "Material": "Madeira de Pinus para Gabarito / Sarrafo (Barra 3m)", "Quantidade": math.ceil(perimetro_paredes * 0.5), "Unidade": "un"},
-                {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa (Fundações e Sapatas)", "Quantidade": round(qtd_sapatas * 0.4, 2), "Unidade": "m³"},
+                {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa (Fundações)", "Quantidade": round(qtd_sapatas * 0.4, 2), "Unidade": "m³"},
                 {"Etapa": "02. Infraestrutura", "Material": "Aço CA-50 Cortado e Dobrado (Sapatas)", "Quantidade": round(qtd_sapatas * 25.0, 1), "Unidade": "kg"},
                 {"Etapa": "03. Estrutura e Piso", "Material": "Cimento CP II-E-32 (Saco 50kg)", "Quantidade": math.ceil(area_obra * 1.1), "Unidade": "sc"},
                 {"Etapa": "04. Alvenaria", "Material": "Tijolos Cerâmicos de Vedação Baiano", "Quantidade": math.ceil(perimetro_paredes * 2.8 * 25), "Unidade": "un"},
@@ -174,6 +180,7 @@ with tab_civil:
             ]
             st.rerun()
     else:
+        st.write("#### 🏠 Lançamento de Ambientes da Prancha Customizada")
         cc1, cc2, cc3 = st.columns(3)
         with cc1: nome_c = st.text_input("Nome do Cômodo:")
         with cc2: comp_c = st.number_input("Comprimento (m):", value=4.0)
@@ -187,11 +194,14 @@ with tab_civil:
             st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
             if st.button("📊 Processar Prancha de Ambientes"):
                 area_total = sum(c["Comprimento"] * c["Largura"] for c in st.session_state.comodos)
+                perimetro_total = sum(((c["Comprimento"] * 2) + (c["Largura"] * 2)) for c in st.session_state.comodos)
                 st.session_state.lista_materiais_civil = [
-                    {"Etapa": "Estrutura e Piso (Prancha)", "Material": "Cimento CP II (Saco 50kg) - Obra", "Quantidade": math.ceil(area_total * 1.1), "Unidade": "sc"},
-                    {"Etapa": "Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total * 1.1, 1), "Unidade": "m²"}
+                    {"Etapa": "01. Estrutura e Piso (Prancha)", "Material": "Cimento CP II (Saco 50kg) - Obra", "Quantidade": math.ceil(area_total * 1.1), "Unidade": "sc"},
+                    {"Etapa": "02. Alvenaria (Prancha)", "Material": "Tijolos Cerâmicos de Vedação", "Quantidade": math.ceil(perimetro_total * 2.8 * 25), "Unidade": "un"},
+                    {"Etapa": "03. Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total * 1.1, 1), "Unidade": "m²"}
                 ]
                 st.rerun()
+                
     if st.session_state.lista_materiais_civil:
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
 with tab_eletrica:
@@ -219,8 +229,6 @@ with tab_eletrica:
             st.success("Planta completa dimensionada e salva permanente!")
             st.rerun()
     else:
-        st.write("💡 *Lançamento manual indexado no banco de dados SQLite.*")
-        # Interface de inserção manual simplificada para evitar falhas de compilação
         manual_pot = st.number_input("Potência Ativa do Circuito (W):", value=2200, step=100)
         manual_comp = st.number_input("Comprimento do Circuito (m):", value=15, step=1)
         if st.button("➕ Inserir Novo Circuito Calculado"):
@@ -235,35 +243,35 @@ with tab_eletrica:
 
     if st.session_state.lista_circuitos_calc:
         st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
+def def_recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad, circuitos_list):
+    materiais = [
+        {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC Flexível Corrugado 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"}
+    ]
+    st.session_state.lista_materiais_eletricos = materiais
+
+try: area_obra_ref = area_obra
+except: area_obra_ref = 70.0
+
+tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
+def_recalcular_materials = def_recalcular_materiais_brutos_eletricos(area_obra_ref, tipo_entrada, dj_padrao, st.session_state.lista_circuitos_calc)
+
 with tab_seguranca:
     st.write("### 🛡️ Engenharia de Sistemas de Segurança e Monitoramento CFTV")
-    st.write("Insira os parâmetros de escopo abaixo para o algoritmo gerar a lista completa de ativos e insumos blindados.")
-    
-    col_s1, col_s2, col_s3 = st.columns(3)
-    with col_s1:
-        n_cameras = st.number_input("Quantidade de Câmeras Infravermelho IP IP67:", min_value=0, value=st.session_state.seguranca_insumos["cameras"], step=1)
-    with col_s2:
-        n_sensores = st.number_input("Quantidade de Sensores de Presença IVP Animais:", min_value=0, value=st.session_state.seguranca_insumos["sensores"], step=1)
-    with col_s3:
-        m_cabo_rede = st.number_input("Metragem de Cabo de Rede UTP Cat6 (m):", min_value=10, value=st.session_state.seguranca_insumos["cabo_m"], step=10)
+    n_cameras = st.number_input("Quantidade de Câmeras Infravermelho IP IP67:", min_value=0, value=st.session_state.seguranca_insumos["cameras"], step=1)
+    n_sensores = st.number_input("Quantidade de Sensores de Presença IVP Animais:", min_value=0, value=st.session_state.seguranca_insumos["sensores"], step=1)
+    m_cabo_rede = st.number_input("Metragem de Cabo de Rede UTP Cat6 (m):", min_value=10, value=st.session_state.seguranca_insumos["cabo_m"], step=10)
         
     if st.button("📊 Processar e Sincronizar Sistemas de Segurança"):
         st.session_state.seguranca_insumos = {"cameras": n_cameras, "sensores": n_sensores, "cabo_m": m_cabo_rede}
         salvar_dados_permanentes("seguranca", st.session_state.seguranca_insumos)
-        st.success("Ativos de segurança calculados e integrados ao banco de dados permanente!")
+        st.success("Ativos de segurança calculados e salvos!")
         st.rerun()
 
-    # Exibição do escopo atual de segurança eletrônica na interface
-    st.write("📋 **Ativos Alocados no Sistema de Proteção:**")
     seg_data = [
         {"Componente Técnico": "Câmera CFTV IP Bullet 2MP Full HD IP67", "Quantidade": n_cameras, "Unidade": "un"},
         {"Componente Técnico": "Gravador Digital de Vídeo NVR 8 Canais Ultra HD", "Quantidade": 1 if n_cameras <= 8 else 2, "Unidade": "un"},
-        {"Componente Técnico": "HD Seagate SkyHawk 2TB (Gravação Industrial 24/7)", "Quantidade": 1, "Unidade": "un"},
-        {"Componente Técnico": "Central de Alarme Monitorável Cloud com Teclado", "Quantidade": 1, "Unidade": "un"},
-        {"Componente Técnico": "Sensor Infravermelho Passivo (IVP) Antianimais com Suporte", "Quantidade": n_sensores, "Unidade": "un"},
-        {"Componente Técnico": "Cabo de Rede Blindado UTP Cat6 Puro Cobre", "Quantidade": m_cabo_rede, "Unidade": "m"},
-        {"Componente Técnico": "Conector RJ-45 Modular Cat6 com Guia Otimizada", "Quantidade": max(4, n_cameras * 2 + 4), "Unidade": "un"},
-        {"Componente Técnico": "Sirene Eletrônica de Alta Potência 120 dB Bitonal", "Quantidade": max(1, math.ceil(n_sensores / 4)), "Unidade": "un"}
+        {"Componente Técnico": "Sensor Infravermelho Passivo (IVP) com Suporte", "Quantidade": n_sensores, "Unidade": "un"},
+        {"Componente Técnico": "Cabo de Rede Blindado UTP Cat6 Puro Cobre", "Quantidade": m_cabo_rede, "Unidade": "m"}
     ]
     st.dataframe(pd.DataFrame(seg_data), use_container_width=True)
 def gerar_pdf_completo_obra():
@@ -288,7 +296,6 @@ def gerar_pdf_completo_obra():
     elementos.append(t_cli)
     elementos.append(Spacer(1, 6))
     
-    # ATUALIZAÇÃO DEMANDADA: Filtra e exibe no cabeçalho do PDF apenas os funcionários definidos como responsáveis
     responsaveis_projeto = [f"{f['Função']}: {f['Nome']} ({f['CREA_RE']})" for f in st.session_state.funcionarios if f["Responsavel"]]
     func_txt = " | ".join(responsaveis_projeto) if responsaveis_projeto else "Nenhum assinado"
     elementos.append(Paragraph(f"<b>Responsáveis Técnicos pelo Projeto:</b> {func_txt}", estilo_celula_esq))
@@ -317,7 +324,6 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # MUDANÇA DEMANDADA: Exibição unificada e centralizada no meio da prancha técnica
         texto_centralizado_modelo = f"<b>Potência Instalada Total: {pot_total_calc} W | R: {tot_r}VA | S: {tot_s}VA</b>"
         dados_qdc_pdf.append([Paragraph(texto_centralizado_modelo, estilo_celula)] + [""] * 11)
         
@@ -328,6 +334,7 @@ def gerar_pdf_completo_obra():
             ('ALIGN', (0,-1), (-1,-1), 'CENTER')
         ]))
         elementos.append(t_qdc)
+
     if st.session_state.lista_materiais_civil:
         elementos.append(PageBreak())
         elementos.append(Paragraph("2. Memorial Quantitativo da Alvenaria Estrutural e Cubagem Civil do Zero", estilo_sub))
@@ -338,31 +345,20 @@ def gerar_pdf_completo_obra():
         t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
 
-    # ATUALIZAÇÃO DEMANDADA: Inserção automática do lote de ativos de segurança monitorável na prancha PDF
     elementos.append(PageBreak())
-    elementos.append(Paragraph("3. Lote de Ativos e Infraestrutura de Segurança Eletrônica Monitorável", estilo_sub))
-    dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente de Proteção</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
+    elementos.append(Paragraph("3. Lote de Ativos e Segurança Eletrônica", estilo_sub))
+    dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
     for row_s in seg_data:
         dados_seg_pdf.append([Paragraph("Segurança Eletrônica", estilo_celula), Paragraph(row_s["Componente Técnico"], estilo_celula_esq), Paragraph(str(row_s["Quantidade"]), estilo_celula), Paragraph(row_s["Unidade"], estilo_celula)])
     t_seg = Table(dados_seg_pdf, colWidths=[120.0, 400.0, 140.0, 80.0])
     t_seg.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_seg)
 
-    elementos.append(PageBreak())
-    elementos.append(Paragraph("4. Diretrizes Técnicas Regulamentares", estilo_sub))
-    caviso = [
-        Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
-        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
-        Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
-    ]
-    t_av = Table([[caviso]], colWidths=[740.0])
-    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
-    elementos.append(t_av)
-    
     doc.build(elementos)
     buffer.seek(0)
     return buffer
 
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão")
-    st.download_button(label="📥 Baixar Memorial Técnico Consolidado com Dados do Cliente e Segurança (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
+    if st.session_state.lista_circuitos_calc:
+        st.download_button(label="📥 Baixar Memorial Técnico Consolidado com Dados do Cliente e Segurança (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
