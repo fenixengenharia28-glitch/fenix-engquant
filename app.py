@@ -59,10 +59,10 @@ def carregar_dados_permanentes(chave, valor_padrao):
         return valor_padrao
     return valor_padrao
 
-def inserir_cliente_db(nome, endereco, cidade_uf):
+def inserir_cliente_db(nome, endereco, city_uf):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO clientes (nome, endereco, cidade_uf) VALUES (?, ?, ?)", (nome, endereco, cidade_uf))
+    cursor.execute("INSERT INTO clientes (nome, endereco, cidade_uf) VALUES (?, ?, ?)", (nome, endereco, city_uf))
     conn.commit()
     conn.close()
 
@@ -73,9 +73,9 @@ def listar_clientes_db():
     rows = cursor.fetchall()
     conn.close()
     return rows
-# Inicialização obrigatória de todas as variáveis para evitar NameError, KeyError e AttributeError
 if "lista_materiais_civil" not in st.session_state: st.session_state.lista_materiais_civil = []
 if "lista_materiais_eletricos" not in st.session_state: st.session_state.lista_materiais_eletricos = []
+if "lista_materiais_hidraulicos" not in st.session_state: st.session_state.lista_materiais_hidraulicos = []
 
 if "db_sync" not in st.session_state:
     st.session_state.funcionarios = carregar_dados_permanentes("funcionarios", [
@@ -98,7 +98,7 @@ with st.sidebar:
     st.write("### 👥 Gestão de Equipe Técnica")
     with st.form("form_func", clear_on_submit=True):
         f_nome = st.text_input("Nome do Colaborador:")
-        f_func = st.selectbox("Função:", ["Responsável Técnico", "Eletricista Instalador", "Mestre de Obras", "Projetista", "Técnico em Segurança Eletrônica"])
+        f_func = st.selectbox("Função:", ["Responsável Técnico", "Eletricista Instalador", "Mestre de Obras", "Projetista", "Encanador Hidráulico"])
         f_reg = st.text_input("Registro (CREA / RE):")
         f_resp = st.checkbox("Definir como Responsável pelo Projeto?")
         if st.form_submit_button("Cadastrar Funcionário"):
@@ -125,19 +125,17 @@ with st.sidebar:
                     salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                     st.rerun()
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP Corporativo Base SQLite: Memorial de Engenharia, Dimensionamento CAD e Segurança")
+st.subheader("ERP Corporativo Base SQLite: Memorial Integrado do Zero Absoluto")
 st.markdown("---")
 
 st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
-
 lista_clientes = listar_clientes_db()
 opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
 
-col_c1, col_c2 = st.columns([1, 2])
+col_c1, col_c2 = st.columns(2)
 with col_c1:
     cliente_selecionado = st.selectbox("📂 Escolher Cliente Salvo:", opcoes_clientes)
 
-# Determina os valores com base na seleção
 if cliente_selecionado != "-- Cadastrar Novo Cliente --":
     id_cli = int(cliente_selecionado.split(" - ")[0].replace("ID ", ""))
     dados_cli_atual = [c for c in lista_clientes if c[0] == id_cli][0]
@@ -150,16 +148,11 @@ with col_c2:
         cliente_nome = st.text_input("Nome Completo do Cliente:", value=val_nome)
         cliente_endereco = st.text_input("Endereço da Obra:", value=val_end)
         cliente_cidade = st.text_input("Cidade / UF:", value=val_cid)
-        
-        # MUDANÇA DEMANDADA: Botão direto apenas para gravar e salvar
         if st.form_submit_button("💾 Gravar e Salvar Cliente"):
             if cliente_nome and cliente_endereco:
                 inserir_cliente_db(cliente_nome, cliente_endereco, cliente_cidade)
                 st.success("Cliente gravado com sucesso no banco de dados!")
-                st.calendar = True
                 st.rerun()
-            else:
-                st.warning("Preencha o Nome e o Endereço antes de salvar.")
 CONCESSIONARIAS = {
     "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
     "ENEL SP (SP) - CNC-OM-BR-24": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
@@ -190,7 +183,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             bitola_final = bitolas_comerciais[idx + 1]
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -201,7 +194,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             break
     return bitola_final, disjuntor_final, "B" if tipo_carga == "Iluminação" else "C", round(ib, 2)
 
-tab_civil, tab_eletrica, tab_seguranca, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "🛡️ 3. Sistemas de Segurança", "📥 4. Fechamento & Relatório PDF"])
+tab_civil, tab_eletrica, tab_hidraulica, tab_seguranca, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "🚰 3. Hidráulica & Esgoto", "🛡️ 4. Sistemas de Segurança", "📥 5. Fechamento Relatório"])
 with tab_civil:
     st.write("### 🧱 Configuração do Método de Levantamento Estrutural")
     metodo_calculo = st.radio("Escolha a metodologia de cubagem civil:", ["Cálculo por Metro Quadrado (Global)", "Prancha Customizada Cômodo por Cômodo"], horizontal=True)
@@ -284,6 +277,39 @@ with tab_eletrica:
 
     if st.session_state.lista_circuitos_calc:
         st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
+with tab_hydraulica := tab_hidraulica:
+    st.write("### 🚰 Dimensionamento Automático de Redes Hidráulicas e Esgoto Sanitário")
+    st.write("Insira os parâmetros abaixo com base na área da prancha ou projeto arquitetônico.")
+    
+    col_h1, col_h2 = st.columns(2)
+    with col_h1:
+        n_banheiros = st.number_input("Quantidade de Banheiros/Lavabos Totais da Obra:", min_value=1, value=2, step=1)
+        res_litros = st.selectbox("Capacidade da Caixa d'Água Sugerida (Litros):", [500, 1000, 1500, 2000])
+    with col_h2:
+        m_tubo_agua = st.number_input("Estimativa de Tubulação Água Fria PVC Soldável 25mm (m):", min_value=6, value=30, step=6)
+        m_tubo_esgoto = st.number_input("Estimativa de Tubulação Esgoto PVC Rígido 100mm (m):", min_value=6, value=24, step=6)
+        
+    if st.button("📊 Processar Engenharia Hidráulica"):
+        # Geração matemática realista de insumos de encanamento do zero absoluto
+        st.session_state.lista_materiais_hidraulicos = [
+            {"Etapa": "01. Reservatório", "Material": f"Caixa d'Água em Polietileno Premium {res_litros}L Fortlev", "Quantidade": 1, "Unidade": "un"},
+            {"Etapa": "01. Reservatório", "Material": "Kit Boia de Alta Vazão Click 3/4 com Registro Esfera", "Quantidade": 1, "Unidade": "jg"},
+            {"Etapa": "02. Água Fria", "Material": "Tubo PVC Soldável Marrom 25mm 3/4 (Barra de 6m)", "Quantidade": math.ceil(m_tubo_agua / 6.0), "Unidade": "barra"},
+            {"Etapa": "02. Água Fria", "Material": "Tubo PVC Soldável Marrom 32mm 1' (Barra de 6m) - Ramal", "Quantidade": max(1, math.ceil(m_tubo_agua * 0.3 / 6.0)), "Unidade": "barra"},
+            {"Etapa": "02. Água Fria", "Material": "Joelho 90 Graus PVC Soldável 25mm", "Quantidade": max(6, n_banheiros * 8), "Unidade": "un"},
+            {"Etapa": "02. Água Fria", "Material": "Te de Redução Soldável 32x25mm", "Quantidade": max(2, n_banheiros * 2), "Unidade": "un"},
+            {"Etapa": "02. Água Fria", "Material": "Adesivo Plástico para PVC Frasco 175g com Fita Veda Rosca", "Quantidade": max(1, math.ceil(n_banheiros * 0.6)), "Unidade": "jg"},
+            {"Etapa": "03. Esgoto Sanitário", "Material": "Tubo Esgoto PVC Rígido Branco 100mm (Barra de 6m)", "Quantidade": math.ceil(m_tubo_esgoto / 6.0), "Unidade": "barra"},
+            {"Etapa": "03. Esgoto Sanitário", "Material": "Tubo Esgoto PVC Rígido Branco 40mm (Barra de 6m) - Pias/Ralo", "Quantidade": max(1, math.ceil(m_tubo_esgoto * 0.5 / 6.0)), "Unidade": "barra"},
+            {"Etapa": "03. Esgoto Sanitário", "Material": "Junção Simples 45 Graus PVC Esgoto 100x100mm", "Quantidade": max(2, n_banheiros * 2), "Unidade": "un"},
+            {"Etapa": "03. Esgoto Sanitário", "Material": "Caixa de Gordura em PVC com Cesta de Limpeza Injetada", "Quantidade": 1, "Unidade": "un"},
+            {"Etapa": "03. Esgoto Sanitário", "Material": "Caixa de Inspeção Sanitária de Esgoto com Tampa Plástica", "Quantidade": max(1, math.ceil(m_tubo_esgoto / 12.0)), "Unidade": "un"}
+        ]
+        st.success("Levantamento hidráulico processado com sucesso!")
+        st.rerun()
+        
+    if st.session_state.lista_materiais_hidraulicos:
+        st.dataframe(pd.DataFrame(st.session_state.lista_materiais_hidraulicos), use_container_width=True)
 def def_recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad, circuitos_list):
     materiais = [
         {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC Flexível Corrugado 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"},
@@ -297,15 +323,9 @@ try: area_obra_ref = area_obra
 except: area_obra_ref = 70.0
 
 pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc)
-if pot_total_sistema <= dados_c["limite_mono"]:
-    tipo_entrada, cabo_padrao, dj_padrao = "Monofásico", "10.0 mm²", "40 A"
-    detalhe_caixa = "Caixa Tipo 'E' ou 'A'"
-elif pot_total_sistema <= dados_c["limite_bi"]:
-    tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
-    detalhe_caixa = "Caixa Tipo 'F' ou 'B'"
-else:
-    tipo_entrada, cabo_padrao, dj_padrao = "Trifásico", "25.0 mm²", "80 A"
-    detalhe_caixa = "Caixa Tipo 'H' ou 'C'"
+if pot_total_sistema <= dados_c["limite_mono"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Monofásico", "10.0 mm²", "40 A", "Caixa Tipo 'E' ou 'A'"
+elif pot_total_sistema <= dados_c["limite_bi"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Bifásico", "16.0 mm²", "63 A", "Caixa Tipo 'F' ou 'B'"
+else: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Trifásico", "25.0 mm²", "80 A", "Caixa Tipo 'H' ou 'C'"
 
 def_recalcular_materials = def_recalcular_materiais_brutos_eletricos(area_obra_ref, tipo_entrada, dj_padrao, st.session_state.lista_circuitos_calc)
 
@@ -314,42 +334,44 @@ with tab_seguranca:
     n_cameras = st.number_input("Quantidade de Câmeras Infravermelho IP IP67:", min_value=0, value=st.session_state.seguranca_insumos["cameras"], step=1)
     n_sensores = st.number_input("Quantidade de Sensores de Presença IVP Animais:", min_value=0, value=st.session_state.seguranca_insumos["sensores"], step=1)
     m_cabo_rede = st.number_input("Metragem de Cabo de Rede UTP Cat6 (m):", min_value=10, value=st.session_state.seguranca_insumos["cabo_m"], step=10)
-        
     if st.button("📊 Processar e Sincronizar Sistemas de Segurança"):
         st.session_state.seguranca_insumos = {"cameras": n_cameras, "sensores": n_sensores, "cabo_m": m_cabo_rede}
         salvar_dados_permanentes("seguranca", st.session_state.seguranca_insumos)
         st.success("Ativos de segurança calculados!")
         st.rerun()
+
+    seg_data = [
+        {"Componente Técnico": "Câmera CFTV IP Bullet 2MP Full HD IP67", "Quantidade": n_cameras, "Unidade": "un"},
+        {"Componente Técnico": "Gravador Digital de Vídeo NVR 8 Canais Ultra HD", "Quantidade": 1 if n_cameras <= 8 else 2, "Unidade": "un"},
+        {"Componente Técnico": "Sensor Infravermelho Passivo (IVP) com Suporte", "Quantidade": n_sensores, "Unidade": "un"},
+        {"Componente Técnico": "Cabo de Rede Blindado UTP Cat6 Puro Cobre", "Quantidade": m_cabo_rede, "Unidade": "m"},
+        {"Componente Técnico": "HD Seagate SkyHawk 2TB (Gravação Industrial 24/7)", "Quantidade": 1, "Unidade": "un"},
+        {"Componente Técnico": "Central de Alarme Monitorável Cloud com Teclado", "Quantidade": 1, "Unidade": "un"}
+    ]
+    st.dataframe(pd.DataFrame(seg_data), use_container_width=True)
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
     estilos = getSampleStyleSheet()
-    
     estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=12, textColor=colors.HexColor('#1E3A8A'), spaceAfter=4)
     estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=9.5, textColor=colors.HexColor('#0D9488'), spaceBefore=6, spaceAfter=4, fontName='Helvetica-Bold')
     estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=1)
     estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=0)
-    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['Heading3'], fontSize=11, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=4)
-    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS</b>", estilo_titulo), Spacer(1, 4)]
-    
-    dados_cliente_tabela = [
-        [Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]
-    ]
+    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]]
     t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
-    elementos.append(Spacer(1, 6))
     
     responsaveis_projeto = [f"{f['Função']}: {f['Nome']} ({f['CREA_RE']})" for f in st.session_state.funcionarios if f["Responsavel"]]
-    func_txt = " | ".join(responsaveis_projeto) if responsaveis_projeto else "Nenhum assinado"
-    elementos.append(Paragraph(f"<b>Responsáveis Técnicos pelo Projeto:</b> {func_txt}", estilo_celula_esq))
+    elementos.append(Paragraph(f"<b>Responsáveis Técnicos:</b> {' | '.join(responsaveis_projeto)}", estilo_celula_esq))
 
-    elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Técnica ({concessionaria_sel})</b>", estilo_sub))
+    elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado ({concessionaria_sel})</b>", estilo_sub))
     dados_padrao_pdf = [
-        [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Especificação Conforme Norma Técnica Vigente</b>", estilo_celula_esq)],
-        [Paragraph("Tipo de Fornecimento / Entrada", estilo_celula), Paragraph(tipo_entrada, estilo_celula_esq)],
+        [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Especificação Técnica Regulamentar</b>", estilo_celula_esq)],
+        [Paragraph("Norma Técnica da Concessionária", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
+        [Paragraph("Tipo de Fornecimento / Padrão de Entrada", estilo_celula), Paragraph(f"{tipo_entrada} - ({detalhe_caixa})", estilo_celula_esq)],
         [Paragraph("Cabo do Ramal Geral (Cobre)", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
         [Paragraph("Disjuntor Geral da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)]
     ]
@@ -362,50 +384,32 @@ def gerar_pdf_completo_obra():
         elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Distribuição por Fase", estilo_sub))
         cabecalhos_modelo = ["CIRC", "DESCRIÇÃO DO CIRCUITO TERMINAL", "POT (W)", "POT (VA)", "DIST (M)", "CORRENTE (A)", "DISJ", "BITOLA", "FASE", "TENSÃO", "FAS R", "FAS S"]
         dados_qdc_pdf = [[Paragraph(f"<b>{h}</b>", estilo_celula) for h in cabecalhos_modelo]]
-        tot_r, tot_s, pot_total_calc = 0, 0, 0
+        tot_r, tot_s = 0, 0
         for c in st.session_state.lista_circuitos_calc:
             p_w_val = int(c["POT_W"])
-            pot_total_calc += p_w_val
-            fase_c = str(c["FASE"])
-            r_val = p_w_val if fase_c == "R" else (p_w_val//2 if "RS" in fase_c else 0)
-            s_val = p_w_val if fase_c == "S" else (p_w_val//2 if "RS" in fase_c else 0)
-            tot_r += r_val
-            tot_s += s_val
-            dados_qdc_pdf.append([
-                Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq),
-                Paragraph(str(p_w_val), estilo_celula), Paragraph(str(p_w_val), estilo_celula),
-                Paragraph(f"{c['COMP']}m", estilo_celula), Paragraph(f"{c['IB']}A", estilo_celula),
-                Paragraph(f"{c['CURVA']}{c['DISJ']}", estilo_celula), Paragraph(str(c["COND"]), estilo_celula),
-                Paragraph(fase_c, estilo_celula), Paragraph(f"{c['TENSÃO']}V", estilo_celula),
-                Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
-            ])
-        texto_centralizado_modelo = f"<b>Potência Instalada Total: {pot_total_calc} W | R: {tot_r}VA | S: {tot_s}VA</b>"
-        dados_qdc_pdf.append([Paragraph(texto_centralizado_modelo, estilo_celula)] + [""] * 11)
+            r_val = p_w_val if c["FASE"] == "R" else (p_w_val//2 if "RS" in c["FASE"] else 0)
+            s_val = p_w_val if c["FASE"] == "S" else (p_w_val//2 if "RS" in c["FASE"] else 0)
+            tot_r += r_val; tot_s += s_val
+            dados_qdc_pdf.append([Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq), Paragraph(str(p_w_val), estilo_celula), Paragraph(str(p_w_val), estilo_celula), Paragraph(f"{c['COMP']}m", estilo_celula), Paragraph(f"{c['IB']}A", estilo_celula), Paragraph(f"{c['CURVA']}{c['DISJ']}", estilo_celula), Paragraph(str(c["COND"]), estilo_celula), Paragraph(c["FASE"], estilo_celula), Paragraph(f"{c['TENSÃO']}V", estilo_celula), Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)])
+        dados_qdc_pdf.append([Paragraph(f"<b>Potência Instalada Total: {pot_total_sistema} W | R: {tot_r}VA | S: {tot_s}VA</b>", estilo_celula)] + [""] * 11)
         t_qdc = Table(dados_qdc_pdf, colWidths=[35.0, 200.0, 50.0, 50.0, 50.0, 65.0, 45.0, 55.0, 40.0, 45.0, 53.0, 53.0])
         t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('SPAN', (0,-1), (-1,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 3), ('ALIGN', (0,-1), (-1,-1), 'CENTER')]))
         elementos.append(t_qdc)
 
-    if st.session_state.lista_materiais_civil:
-        elementos.append(PageBreak())
-        elementos.append(Paragraph("2. Memorial Quantitativo da Alvenaria Estrutural e Cubagem Civil do Zero", estilo_sub))
-        dados_civil = [[Paragraph("<b>Etapa Civil</b>", estilo_celula), Paragraph("<b>Material Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
-        for mat in st.session_state.lista_materiais_civil:
-            dados_civil.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
-        t_civ = Table(dados_civil, colWidths=[120.0, 400.0, 140.0, 80.0])
-        t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
-        elementos.append(t_civ)
+    for tit, lista in [("2. Memorial Quantitativo da Alvenaria e Cubagem Civil", st.session_state.lista_materiais_civil), ("3. Componentes Elétricos Brutos e Infraestrutura", st.session_state.lista_materiais_eletricos), ("4. Lote Hidráulico e Redes de Esgoto Sanitário", st.session_state.lista_materiais_hidraulicos)]:
+        if lista:
+            elementos.append(PageBreak())
+            elementos.append(Paragraph(tit, estilo_sub))
+            tbl_d = [[Paragraph("<b>Etapa</b>", estilo_celula), Paragraph("<b>Insumo Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
+            for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
+            t_m = Table(tbl_d, colWidths=[130.0, 390.0, 140.0, 80.0])
+            t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569' if "Civil" in tit else ('#0D9488' if "Elétricos" in tit else '#1E40AF'))), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
+            elementos.append(t_m)
 
     elementos.append(PageBreak())
-    elementos.append(Paragraph("3. Lote de Ativos e Segurança Eletrônica Monitorável", estilo_sub))
-    dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
-    seg_data_render = [
-        {"Componente Técnico": "Câmera CFTV IP Bullet 2MP Full HD IP67", "Quantidade": st.session_state.seguranca_insumos["cameras"], "Unidade": "un"},
-        {"Componente Técnico": "Gravador Digital de Vídeo NVR 8 Canais Ultra HD", "Quantidade": 1, "Unidade": "un"},
-        {"Componente Técnico": "Sensor Infravermelho Passivo (IVP) com Suporte", "Quantidade": st.session_state.seguranca_insumos["sensores"], "Unidade": "un"},
-        {"Componente Técnico": "Cabo de Rede Blindado UTP Cat6 Puro Cobre", "Quantidade": st.session_state.seguranca_insumos["cabo_m"], "Unidade": "m"}
-    ]
-    for row_s in seg_data_render:
-        dados_seg_pdf.append([Paragraph("Segurança Eletrônica", estilo_celula), Paragraph(row_s["Componente Técnico"], estilo_celula_esq), Paragraph(str(row_s["Quantidade"]), estilo_celula), Paragraph(row_s["Unidade"], estilo_celula)])
+    elementos.append(Paragraph("5. Lote de Ativos e Segurança Eletrônica Monitorável", estilo_sub))
+    dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente Técnico</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
+    for row_s in seg_data: dados_seg_pdf.append([Paragraph("Segurança Eletrônica", estilo_celula), Paragraph(row_s["Componente Técnico"], estilo_celula_esq), Paragraph(str(row_s["Quantidade"]), estilo_celula), Paragraph(row_s["Unidade"], estilo_celula)])
     t_seg = Table(dados_seg_pdf, colWidths=[120.0, 400.0, 140.0, 80.0])
     t_seg.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_seg)
@@ -416,4 +420,4 @@ def gerar_pdf_completo_obra():
 
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão")
-    st.download_button(label="📥 Baixar Memorial Técnico Consolidado Completo (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
+    st.download_button(label="📥 Baixar Memorial Técnico Consolidado da Obra Completa (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_unificado.pdf", mime="application/pdf", key="btn_pdf_real")
