@@ -39,6 +39,66 @@ if "lista_materiais_civil" not in st.session_state:
     st.session_state.lista_materiais_civil = []
 if "lista_materiais_eletricos" not in st.session_state:
     st.session_state.lista_materiais_eletricos = []
+# Mapeando os motores gráficos no início para o PDF conseguir ler sem dar NameError
+def gerar_desenho_unifilar(cabo_pad, dj_pad):
+    n_circ = len(st.session_state.lista_circuitos)
+    altura_d = max(160, (n_circ * 35) + 60)
+    d = Drawing(540, altura_d)
+    d.add(Line(20, altura_d - 40, 100, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(String(20, altura_d - 30, f"{cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
+    d.add(Line(100, altura_d - 40, 115, altura_d - 50, strokeColor=colors.black, strokeWidth=2))
+    d.add(String(100, altura_d - 30, f"{dj_pad}", fontSize=9, fontName='Helvetica-Bold'))
+    d.add(Line(140, altura_d - 40, 140, 20, strokeColor=colors.black, strokeWidth=2))
+    d.add(Line(115, altura_d - 40, 140, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    for idx, c in enumerate(st.session_state.lista_circuitos):
+        y = (altura_d - 70) - (idx * 35)
+        d.add(Circle(140, y, 2, fillColor=colors.black, strokeColor=colors.black))
+        d.add(Line(140, y, 200, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(Line(200, y, 215, y - 10, strokeColor=colors.black, strokeWidth=1.5))
+        d.add(String(195, y + 6, c["Disjuntor"], fontSize=8, fontName='Helvetica-Bold'))
+        d.add(Line(215, y, 260, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(Line(255, y + 4, 260, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(Line(255, y - 4, 260, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(String(225, y + 6, c["Cabo"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
+        d.add(String(270, y - 3, f"{c['Circuito']}: {c['Descrição']} ({c['Carga (W)']}W)", fontSize=8, fontName='Helvetica'))
+    return d
+
+def gerar_desenho_multifilar():
+    n_circ = len(st.session_state.lista_circuitos)
+    altura_d = max(200, (n_circ * 45) + 80)
+    d = Drawing(540, altura_d)
+    x_fase1, x_fase2, x_neutro, x_terra = 160, 190, 220, 250
+    d.add(String(x_fase1, altura_d - 20, "Fase R", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.red))
+    d.add(String(x_fase2, altura_d - 20, "Fase S", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
+    d.add(String(x_neutro, altura_d - 20, "N", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.blue))
+    d.add(String(x_terra, altura_d - 20, "T", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
+    d.add(Line(x_fase1, altura_d - 25, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.5))
+    d.add(Line(x_fase2, altura_d - 25, x_fase2, 20, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
+    d.add(Line(x_neutro, altura_d - 25, x_neutro, 20, strokeColor=colors.blue, strokeWidth=1.5))
+    d.add(Line(x_terra, altura_d - 25, x_terra, 20, strokeColor=colors.HexColor('#16A34A'), strokeWidth=1.2))
+    for idx, c in enumerate(st.session_state.lista_circuitos):
+        y = (altura_d - 65) - (idx * 45)
+        if idx % 2 == 0:
+            d.add(Rect(20, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
+            d.add(String(25, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+            d.add(String(25, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
+            d.add(String(105, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
+            d.add(Line(110, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
+            d.add(Circle(x_fase1, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
+            if c["Tipo"] == "Bifásico":
+                d.add(Line(110, y - 6, x_fase2, y - 6, strokeColor=colors.black, strokeWidth=1))
+                d.add(Circle(x_fase2, y - 6, 2.5, fillColor=colors.black, strokeColor=colors.black))
+        else:
+            d.add(Rect(300, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
+            d.add(String(305, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#0D9488')))
+            d.add(String(305, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
+            d.add(String(385, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
+            d.add(Line(290, y, x_fase2, y, strokeColor=colors.black, strokeWidth=1))
+            d.add(Circle(x_fase2, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
+            if c["Tipo"] == "Monofásico":
+                d.add(Line(290, y - 6, x_neutro, y - 6, strokeColor=colors.blue, strokeWidth=0.8))
+                d.add(Circle(x_neutro, y - 6, 2, fillColor=colors.blue, strokeColor=colors.blue))
+    return d
 def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
     if not st.session_state.lista_circuitos:
         st.session_state.lista_materiais_eletricos = []
@@ -74,6 +134,7 @@ def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
     st.session_state.lista_materiais_eletricos = materiais
 
 tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quantitativo Elétrico", "📥 3. Fechamento & Relatório PDF"])
+
 with tab_civil:
     st.write("### 📐 Parâmetros de Entrada da Construção Civil")
     c_civ1, c_civ2, c_civ3 = st.columns(3)
@@ -154,66 +215,6 @@ if st.session_state.lista_circuitos:
     st.write("#### 📋 Circuitos e Materiais Elétricos")
     st.dataframe(pd.DataFrame(st.session_state.lista_circuitos), use_container_width=True)
     st.dataframe(pd.DataFrame(st.session_state.lista_materiais_eletricos), use_container_width=True)
-
-def generar_desenho_unifilar():
-    n_circ = len(st.session_state.lista_circuitos)
-    altura_d = max(160, (n_circ * 35) + 60)
-    d = Drawing(540, altura_d)
-    d.add(Line(20, altura_d - 40, 100, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(20, altura_d - 30, f"{cabo_padrao}", fontSize=8, fontName='Helvetica-Bold'))
-    d.add(Line(100, altura_d - 40, 115, altura_d - 50, strokeColor=colors.black, strokeWidth=2))
-    d.add(String(100, altura_d - 30, f"{dj_padrao}", fontSize=9, fontName='Helvetica-Bold'))
-    d.add(Line(140, altura_d - 40, 140, 20, strokeColor=colors.black, strokeWidth=2))
-    d.add(Line(115, altura_d - 40, 140, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
-    for idx, c in enumerate(st.session_state.lista_circuitos):
-        y = (altura_d - 70) - (idx * 35)
-        d.add(Circle(140, y, 2, fillColor=colors.black, strokeColor=colors.black))
-        d.add(Line(140, y, 200, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(Line(200, y, 215, y - 10, strokeColor=colors.black, strokeWidth=1.5))
-        d.add(String(195, y + 6, c["Disjuntor"], fontSize=8, fontName='Helvetica-Bold'))
-        d.add(Line(215, y, 260, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(Line(255, y + 4, 260, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(Line(255, y - 4, 260, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(String(225, y + 6, c["Cabo"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
-        d.add(String(270, y - 3, f"{c['Circuito']}: {c['Descrição']} ({c['Carga (W)']}W)", fontSize=8, fontName='Helvetica'))
-    return d
-
-def generar_desenho_multifilar():
-    n_circ = len(st.session_state.lista_circuitos)
-    altura_d = max(200, (n_circ * 45) + 80)
-    d = Drawing(540, altura_d)
-    x_fase1, x_fase2, x_neutro, x_terra = 160, 190, 220, 250
-    d.add(String(x_fase1, altura_d - 20, "Fase R", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.red))
-    d.add(String(x_fase2, altura_d - 20, "Fase S", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
-    d.add(String(x_neutro, altura_d - 20, "N", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.blue))
-    d.add(String(x_terra, altura_d - 20, "T", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
-    d.add(Line(x_fase1, altura_d - 25, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.5))
-    d.add(Line(x_fase2, altura_d - 25, x_fase2, 20, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
-    d.add(Line(x_neutro, altura_d - 25, x_neutro, 20, strokeColor=colors.blue, strokeWidth=1.5))
-    d.add(Line(x_terra, altura_d - 25, x_terra, 20, strokeColor=colors.HexColor('#16A34A'), strokeWidth=1.2))
-    for idx, c in enumerate(st.session_state.lista_circuitos):
-        y = (altura_d - 65) - (idx * 45)
-        if idx % 2 == 0:
-            d.add(Rect(20, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
-            d.add(String(25, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
-            d.add(String(25, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
-            d.add(String(105, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
-            d.add(Line(110, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
-            d.add(Circle(x_fase1, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
-            if c["Tipo"] == "Bifásico":
-                d.add(Line(110, y - 6, x_fase2, y - 6, strokeColor=colors.black, strokeWidth=1))
-                d.add(Circle(x_fase2, y - 6, 2.5, fillColor=colors.black, strokeColor=colors.black))
-        else:
-            d.add(Rect(300, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
-            d.add(String(305, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#0D9488')))
-            d.add(String(305, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
-            d.add(String(385, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
-            d.add(Line(290, y, x_fase2, y, strokeColor=colors.black, strokeWidth=1))
-            d.add(Circle(x_fase2, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
-            if c["Tipo"] == "Monofásico":
-                d.add(Line(290, y - 6, x_neutro, y - 6, strokeColor=colors.blue, strokeWidth=0.8))
-                d.add(Circle(x_neutro, y - 6, 2, fillColor=colors.blue, strokeColor=colors.blue))
-    return d
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -230,7 +231,7 @@ def gerar_pdf_completo_obra():
         elementos.append(Paragraph("1. Lote de Materiais da Construção Civil", estilo_sub))
         dados = [["Etapa", "Material Otimizado", "Qtd", "Un"]]
         for m in st.session_state.lista_materiais_civil: dados.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
-        t = Table(dados, colWidths=[110, 290, 80, 60])
+        t = Table(dados, colWidths=[120, 260, 80, 80])
         t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('FONTSIZE', (0,0), (-1,-1), 8)]))
         elementos.append(t)
         
@@ -238,13 +239,13 @@ def gerar_pdf_completo_obra():
         elementos.append(Paragraph("2. Lote de Materiais e Componentes Elétricos", estilo_sub))
         dados_el = [["Etapa", "Componente Detalhado", "Qtd", "Un"]]
         for m in st.session_state.lista_materiais_eletricos: dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
-        t_el = Table(dados_el, colWidths=[110, 290, 80, 60])
+        t_el = Table(dados_el, colWidths=[120, 260, 80, 80])
         t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8)]))
         elementos.append(t_el)
 
     if st.session_state.lista_circuitos:
         elementos.append(Paragraph("3. Esquemas Técnicos e Diagramação Elétrica (QDC)", estilo_sub))
-        elementos.append(gerar_desenho_unifilar())
+        elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao))
         elementos.append(Spacer(1, 10))
         elementos.append(gerar_desenho_multifilar())
 
@@ -268,4 +269,4 @@ with tab_pdf:
             st.session_state.lista_materiais_eletricos = []
             st.rerun()
     else:
-        st.info("Efetue os levantamentos nas abas para liberar o PDF.")
+        st.info("Efetue os levantamentos na Aba 1 (Civil) e Aba 2 (Elétrica) para liberar o PDF completo.")
