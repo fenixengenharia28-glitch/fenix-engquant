@@ -190,7 +190,7 @@ def gerar_pdf_etiqueta_qdc():
     for c in st.session_state.lista_circuitos:
         dados_tabela.append([c["Circuito"], c["Descrição"], f"{c['Carga (W)']}W", f"{c['Tensão (V)']}V", c["Cabo"], c["Disjuntor"]])
     
-    t = Table(dados_tabela, colWidths=[70, 230, 60, 60, 60, 60])
+    t = Table(dados_tabela, colWidths=[60, 200, 70, 70, 70, 70])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -215,7 +215,7 @@ def gerar_pdf_etiqueta_qdc():
     
     elementos.append(Paragraph("4. Sinalização Compulsória de Segurança (Item 6.1.5.1)", estilo_sub))
     
-    # CORREÇÃO DA SINTAXE DE STRING DO AVISO AQUI
+    # CORREÇÃO DA SINTAXE DO AVISO DA NBR AQUI
     AVISO_TEXTO = [[Paragraph(f"<b>⚠️ {AVISO_NBR}</b>", estilo_aviso)]]
     t_aviso = Table(AVISO_TEXTO, colWidths=[540])
     t_aviso.setStyle(TableStyle([
