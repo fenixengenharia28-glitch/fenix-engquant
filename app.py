@@ -73,7 +73,7 @@ def listar_clientes_db():
     rows = cursor.fetchall()
     conn.close()
     return rows
-    if "lista_materials_civil" not in st.session_state: st.session_state.lista_materials_civil = []
+if "lista_materials_civil" not in st.session_state: st.session_state.lista_materials_civil = []
 if "lista_materials_eletricos" not in st.session_state: st.session_state.lista_materials_eletricos = []
 if "lista_materials_hidraulicos" not in st.session_state: st.session_state.lista_materials_hidraulicos = []
 
@@ -86,7 +86,7 @@ if "db_sync" not in st.session_state:
     st.session_state.comodos = carregar_dados_permanentes("comodos", [])
     st.session_state.seguranca_insumos = carregar_dados_permanentes("seguranca", {"cameras": 4, "sensores": 3, "cabo_m": 100})
     st.session_state.db_sync = True
-    with st.sidebar:
+with st.sidebar:
     st.markdown(
         """
         <div style="background-color:#1E3A8A; padding:15px; border-radius:10px; text-align:center; margin-bottom:20px;">
@@ -124,9 +124,8 @@ if "db_sync" not in st.session_state:
                     st.session_state.funcionarios.pop(idx)
                     salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                     st.rerun()
-
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP Corporativo Base SQLite: Memorial de Engenharia e Cubagem Geral da Obra")
+st.subheader("ERP Corporativo Base SQLite: Memorial de Engenharia, Lote Otimizado e Segurança")
 st.markdown("---")
 
 st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
@@ -156,14 +155,15 @@ with col_c2:
                 st.rerun()
 CONCESSIONARIAS = {
     "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
-    "ENEL SP (SP) - CNC-OM-BR-24": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
-    "ENEL RJ (RJ) - CNC-OM-BR-24": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
-    "CPFL Paulista (SP) - GED-13": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13", "caixa_mono": "Caixa Tipo II", "caixa_bi": "Caixa Tipo III", "caixa_tri": "Caixa Tipo IV"},
+    "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
+    "ENEL RJ (RJ) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
+    "ENEL CE (CE) - NT-001": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001", "caixa_mono": "Caixa Monofásica BT", "caixa_bi": "Caixa Bifásica BT", "caixa_tri": "Caixa Trifásica BT"},
     "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT", "caixa_mono": "Caixa Tipo L", "caixa_bi": "Caixa Tipo M", "caixa_tri": "Caixa Tipo N"},
-    "COPEL (PR) - NTC 901100": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "CELESC (SC) - N-321.0001": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "EQUATORIAL MA/PA/PI/AL - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
-    "NEOENERGIA COELBA/CELPE/COSERN": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
+    "CPFL Paulista (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13", "caixa_mono": "Caixa Tipo II", "caixa_bi": "Caixa Tipo III", "caixa_tri": "Caixa Tipo IV"},
+    "COPEL (PR) - NTC 901": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
+    "CELESC (SC) - N-321": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
+    "EQUATORIAL MA/PA/PI/AL": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
+    "NEOENERGIA BA/PE/RN/DF": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
     "ENERGISA MT/MS/TO/RO/AC": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN", "caixa_mono": "Caixa Padrão E", "caixa_bi": "Caixa Padrão F", "caixa_tri": "Caixa Padrão H"}
 }
 
@@ -212,16 +212,16 @@ with tab_civil:
         qtd_sapatas = st.number_input("Quantidade de Sapatas Isoladas:", min_value=0, value=12, step=1)
         if st.button("📊 Processar Cubagem Global Completa"):
             st.session_state.lista_materials_civil = [
-                {"Etapa": "01. Locação da Obra", "Material": "Tábua de Pinus 30cm x 3m (Gabarito)", "Quantidade": math.ceil(perimetro_paredes * 0.4), "Unidade": "un"},
+                {"Etapa": "01. Locação da Obra", "Material": "Tábua de Pinus 30cm x 3m (Gabarito de Alinhamento)", "Quantidade": math.ceil(perimetro_paredes * 0.4), "Unidade": "un"},
                 {"Etapa": "01. Locação da Obra", "Material": "Piquete / Pontalete de Madeira 5x5cm", "Quantidade": 25, "Unidade": "un"},
-                {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa (Sapatas)", "Quantidade": round(qtd_sapatas * 0.4, 2), "Unidade": "m³"},
-                {"Etapa": "02. Infraestrutura", "Material": "Vergalhão de Aço CA-50 3/8 (10mm)", "Quantidade": round(qtd_sapatas * 25.0, 1), "Unidade": "kg"},
-                {"Etapa": "03. Estrutura e Piso", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": math.ceil(area_obra * 1.1), "Unidade": "sc"},
+                {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa para Sapatas/Blocos", "Quantidade": round(qtd_sapatas * 0.4, 2), "Unidade": "m³"},
+                {"Etapa": "02. Infraestrutura", "Material": "Vergalhão de Aço CA-50 Cortado e Dobrado 10mm", "Quantidade": round(qtd_sapatas * 25.0, 1), "Unidade": "kg"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Cimento CP II-Z-32 (Saco de 50kg) - Canteiro Geral", "Quantidade": math.ceil(area_obra * 1.1), "Unidade": "sc"},
                 {"Etapa": "03. Estrutura e Piso", "Material": "Areia Média Lavada Grossa Comercial", "Quantidade": round(area_obra * 0.12, 1), "Unidade": "m³"},
-                {"Etapa": "03. Estrutura e Piso", "Material": "Brita Graduada No 1 para Concreto", "Quantidade": round(area_obra * 0.14, 1), "Unidade": "m³"},
-                {"Etapa": "04. Alvenaria e Fechamento", "Material": "Tijolo Cerâmico Baiano 8 Furos", "Quantidade": math.ceil(perimetro_paredes * 2.8 * 25 * 1.1), "Unidade": "un"},
-                {"Etapa": "05. Acabamentos", "Material": "Argamassa Colante AC-III (Saco 20kg)", "Quantidade": math.ceil(area_obra * 0.28), "Unidade": "sc"},
-                {"Etapa": "05. Acabamentos", "Material": "Piso Porcelanato Retificado Comercial", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"}
+                {"Etapa": "03. Estrutura e Piso", "Material": "Brita Graduada No 1 para Concretagem", "Quantidade": round(area_obra * 0.14, 1), "Unidade": "m³"},
+                {"Etapa": "04. Alvenaria e Fechamento", "Material": "Tijolo Cerâmico Baiano 8 Furos (9x19x19cm)", "Quantidade": math.ceil(perimetro_paredes * 2.8 * 25 * 1.1), "Unidade": "un"},
+                {"Etapa": "05. Acabamentos", "Material": "Argamassa Colante AC-III Interna/Externa (Saco 20kg)", "Quantidade": math.ceil(area_obra * 0.28), "Unidade": "sc"},
+                {"Etapa": "05. Acabamentos", "Material": "Piso Porcelanato Retificado Comercial Retificado", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"}
             ]
             st.rerun()
     else:
@@ -286,12 +286,13 @@ with tab_eletrica:
 
     if st.session_state.lista_circuitos_calc:
         st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
+# CORREÇÃO DEFINITIVA DO INDENTATIONERROR: Todo o bloco interno da aba hidráulica foi alinhado milimetricamente
 with tab_hidraulica:
     st.write("### 🚰 Dimensionamento Automático de Redes Hidráulicas e Esgoto Sanitário")
     col_h1, col_h2 = st.columns(2)
     with col_h1:
         n_banheiros = st.number_input("Quantidade de Banheiros/Lavabos:", min_value=1, value=2, step=1)
-        res_litros = st.selectbox("Capacidade da Caixa d'Água (Litros):", [500, 1000, 1500])
+        res_litros = st.selectbox("Capacidade da Caixa d'Água (Litros):", [500, 1000, 1500, 2000])
     with col_h2:
         m_tubo_agua = st.number_input("Estimativa de Tubulação Água Fria 25mm (m):", min_value=6, value=30, step=6)
         m_tubo_esgoto = st.number_input("Estimativa de Tubulação Esgoto 100mm (m):", min_value=6, value=24, step=6)
@@ -307,6 +308,7 @@ with tab_hidraulica:
         ]
         st.success("Levantamento hidráulico processado!")
         st.rerun()
+        
     if st.session_state.lista_materials_hidraulicos:
         st.dataframe(pd.DataFrame(st.session_state.lista_materials_hidraulicos), use_container_width=True)
 
@@ -396,7 +398,6 @@ def gerar_pdf_completo_obra():
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569' if "Civil" in tit else ('#0D9488' if "Elétricos" in tit else '#1E40AF'))), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
 
-    # CORREÇÃO DEFINITIVA DO NAMEERROR: O loop de renderização agora mapeia corretamente a variável local vinculada ao state
     elementos.append(PageBreak())
     elementos.append(Paragraph("5. Lote de Ativos e Segurança Eletrônica Monitorável", estilo_sub))
     dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente Técnico</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
@@ -406,8 +407,7 @@ def gerar_pdf_completo_obra():
         {"Componente Técnico": "Sensor Infravermelho Passivo (IVP) com Suporte", "Quantidade": st.session_state.seguranca_insumos["sensores"], "Unidade": "un"},
         {"Componente Técnico": "Cabo de Rede Blindado UTP Cat6 Puro Cobre", "Quantidade": st.session_state.seguranca_insumos["cabo_m"], "Unidade": "m"}
     ]
-    for row_s in seg_data_render:
-        dados_seg_pdf.append([Paragraph("Segurança Eletrônica", estilo_celula), Paragraph(row_s["Componente Técnico"], estilo_celula_esq), Paragraph(str(row_s["Quantidade"]), estilo_celula), Paragraph(row_s["Unidade"], estilo_celula)])
+    for row_s in seg_data_render: dados_seg_pdf.append([Paragraph("Segurança Eletrônica", estilo_celula), Paragraph(row_s["Componente Técnico"], estilo_celula_esq), Paragraph(str(row_s["Quantidade"]), estilo_celula), Paragraph(row_s["Unidade"], estilo_celula)])
     t_seg = Table(dados_seg_pdf, colWidths=[120.0, 400.0, 140.0, 80.0])
     t_seg.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_seg)
