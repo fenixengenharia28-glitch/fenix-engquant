@@ -12,7 +12,7 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP de Engenharia: Homologação de Padrão por Concessionária & Tabelas NBR 5410")
+st.subheader("ERP de Engenharia: Tabela de Cargas NBR 5410 & Homologação de Padrão")
 st.markdown("---")
 
 AVISO_NBR = (
@@ -21,7 +21,6 @@ AVISO_NBR = (
     "VERIFIQUE O FUNCIONAMENTO DO DISPOSITIVO DR MENSALMENTE APERTANDO O BOTÃO DE TESTE (T)."
 )
 
-# Banco de dados com dados de limites de engenharia reais para Padrão de Entrada
 CONCESSIONARIAS = {
     "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
     "ENEL (São Paulo)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
@@ -40,6 +39,7 @@ if "lista_materiais_civil" not in st.session_state:
     st.session_state.lista_materiais_civil = []
 if "lista_materiais_eletricos" not in st.session_state:
     st.session_state.lista_materiais_eletricos = []
+
 def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
     if not st.session_state.lista_circuitos:
         st.session_state.lista_materiais_eletricos = []
@@ -94,8 +94,8 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad):
         d.add(String(225, y + 6, c["Cabo"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
         d.add(String(270, y - 3, f"C{c['Circuito']}: {c['Descrição']} - {c['Fase']} ({c['Carga']}W)", fontSize=8, fontName='Helvetica'))
     return d
-
 tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "📥 3. Fechamento & Relatório PDF"])
+
 with tab_civil:
     st.write("### 📐 Parâmetros de Entrada da Construção Civil")
     c_civ1, c_civ2, c_civ3 = st.columns(3)
@@ -182,20 +182,18 @@ with tab_eletrica:
                 })
                 st.success("Circuito adicionado!")
                 st.rerun()
-# --- CÁLCULO GERAL E REGULAMENTAÇÃO TÉCNICA DO PADRÃO DE ENTRADA ---
 pot_total = sum(c["Carga"] for c in st.session_state.lista_circuitos)
 dados_c_global = CONCESSIONARIAS[concessionaria_sel]
 
-# Aplicação das regras de engenharia de limites para fixar cabos e disjuntores da rua
 if pot_total <= dados_c_global["limite_mono"]:
     tipo_entrada, cabo_padrao, dj_padrao = "Monofásico", "10.0 mm²", "40 A"
-    detalhe_caixa = "Caixa Tipo 'E' ou Tipo 'A' (De acordo com normas locais)"
+    detalhe_caixa = "Caixa Tipo 'E' ou Tipo 'A'"
 elif pot_total <= dados_c_global["limite_bi"]:
     tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
-    detalhe_caixa = "Caixa Tipo 'F' ou Tipo 'B' (De acordo com normas locais)"
+    detalhe_caixa = "Caixa Tipo 'F' ou Tipo 'B'"
 else:
     tipo_entrada, cabo_padrao, dj_padrao = "Trifásico", "25.0 mm²", "80 A"
-    detalhe_caixa = "Caixa Tipo 'H' ou Tipo 'C' (De acordo com normas locais)"
+    detalhe_caixa = "Caixa Tipo 'H' ou Tipo 'C'"
 
 recalcular_materials = recalcular_materiais_brutos_eletricos(area_obra, tipo_entrada, dj_padrao)
 
@@ -217,8 +215,7 @@ def gerar_pdf_completo_obra():
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS E HOMOLOGAÇÃO</b>", estilo_titulo), Spacer(1, 6)]
     
-    # SEÇÃO DO PADRÃO DE ENTRADA DA CONCESSIONÁRIA NO PDF
-    elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Tecnica da {concessionaria_sel}</b>", estilo_sub))
+    elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Técnica da {concessionaria_sel}</b>", estilo_sub))
     dados_padrao_pdf = [
         ["Parâmetro do Padrão", "Especificação Conforme Norma Técnica Vigente"],
         ["Norma Técnica Base", dados_c_global["norma"]],
@@ -227,7 +224,8 @@ def gerar_pdf_completo_obra():
         ["Disjuntor Geral da Caixa", dj_padrao],
         ["Modelo de Caixa Sugerido", detalhe_caixa]
     ]
-    t_pad = Table(dados_padrao_pdf, colWidths=)
+    # LARGURA TRAVADA DA TABELA: 180 + 360 = 540
+    t_pad = Table(dados_padrao_pdf, colWidths=[180, 360])
     t_pad.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
@@ -243,7 +241,9 @@ def gerar_pdf_completo_obra():
         for c in st.session_state.lista_circuitos:
             dados_qdc_pdf.append([c["Circuito"], c["Descrição"], f"{c['Carga']}W", f"{c['VA']}VA", f"{c['Ib (A)']}A", f"{c['Disjuntor']} {c['Curva']}", c["Cabo"], c["Fase"], f"{c['Tensão']}V"])
         dados_qdc_pdf.append(["TOTAL", f"Potência Instalada: {pot_total} W", "", "", "", "", "", "", ""])
-        t_qdc = Table(dados_qdc_pdf, colWidths=)
+        
+        # LARGURA TRAVADA DA TABELA: 40 + 200 + 50 + 50 + 60 + 50 + 50 + 40 + 50 = 590
+        t_qdc = Table(dados_qdc_pdf, colWidths=[40, 200, 50, 50, 60, 50, 50, 40, 50])
         t_qdc.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
@@ -256,8 +256,10 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_materiais_civil:
         elementos.append(Paragraph("2. Lote de Materiais da Construção Civil", estilo_sub))
         dados_civil = [["Etapa Civil", "Material Otimizado", "Quantidade", "Unidade"]]
-        for mat in st.session_state.lista_materiais_civil: dados_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
-        t_civ = Table(dados_civil, colWidths=)
+        for mat in st.session_state.lista_materiais_civil:
+            dados_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
+        # LARGURA TRAVADA DA TABELA: 140 + 260 + 80 + 60 = 540
+        t_civ = Table(dados_civil, colWidths=[140, 260, 80, 60])
         t_civ.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
@@ -268,8 +270,10 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_materiais_eletricos:
         elementos.append(Paragraph("3. Lote de Materiais e Componentes Elétricos", estilo_sub))
         dados_el = [["Etapa Elétrica", "Componente Detalhado", "Quantidade", "Unidade"]]
-        for m in st.session_state.lista_materiais_eletricos: dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
-        t_el = Table(dados_el, colWidths=)
+        for m in st.session_state.lista_materiais_eletricos:
+            dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
+        # LARGURA TRAVADA DA TABELA: 140 + 260 + 80 + 60 = 540
+        t_el = Table(dados_el, colWidths=[140, 260, 80, 60])
         t_el.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8), ('PADDING', (0,0), (-1,-1), 4)
@@ -284,7 +288,8 @@ def gerar_pdf_completo_obra():
 
     elementos.append(Paragraph("5. Painel de Segurança e Advertências Obrigatórias", estilo_sub))
     caviso = [Paragraph("<b>⚠️ RISCO DE CHOQUE ELÉTRICO</b>", estilo_aviso_tit), Paragraph("• <b>NBR 5410:</b> Modificações sem profissional geram risco.", estilo_aviso_corpo), Paragraph("• <b>NR-10:</b> Intervenções por pessoal não autorizado são proibidas.", estilo_aviso_corpo)]
-    t_av = Table([[caviso]], colWidths=)
+    # LARGURA TRAVADA DA TABELA: 540
+    t_av = Table([[caviso]], colWidths=[540])
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#EF4444')), ('PADDING', (0,0), (-1,-1), 8)]))
     elementos.append(t_av)
     
