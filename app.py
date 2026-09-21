@@ -12,7 +12,7 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP de Engenharia: Memorial com Quebra de Páginas e Insumos Civis Ampliados")
+st.subheader("ERP de Engenharia: Memorial com Quebra de Páginas e Dimensionamento Normativo de QDC")
 st.markdown("---")
 
 if "lista_circuitos" not in st.session_state: st.session_state.lista_circuitos = []
@@ -34,33 +34,68 @@ def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
         st.session_state.lista_materiais_eletricos = []
         return
     materiais = [
-        {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"},
-        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir 4x2", "Quantidade": max(4, math.ceil(area_ref * 0.45)), "Unidade": "un"},
-        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir 4x4", "Quantidade": max(2, math.ceil(area_ref * 0.15)), "Unidade": "un"},
-        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 1.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 1.5 / 100.0)), "Unidade": "rl"},
-        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 2.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 2.8 / 100.0)), "Unidade": "rl"}
+        {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC Flexível Corrugado 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"},
+        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir Plástica 4x2", "Quantidade": max(4, math.ceil(area_ref * 0.45)), "Unidade": "un"},
+        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir Plástica 4x4", "Quantidade": max(2, math.ceil(area_ref * 0.15)), "Unidade": "un"},
+        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 1.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 1.5 / 100.0)), "Unidade": "rl"},
+        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 2.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 2.8 / 100.0)), "Unidade": "rl"}
     ]
+    
+    # --- CÁLCULO DE MÓDULOS DIN TÉCNICOS PARA O QDC (CONFORME NBR 5410) ---
+    polos_circuitos = 0
     contagem_dj = {}
     for c in st.session_state.lista_circuitos:
+        polos = 2 if "Bifásico" in c["Tipo"] else 1
+        polos_circuitos += polos
         chave_dj = f"Disjuntor DIN {c['Tipo']} {c['Disjuntor']}"
         contagem_dj[chave_dj] = contagem_dj.get(chave_dj, 0) + 1
+        
     for dj_nome, qtd in contagem_dj.items():
         materiais.append({"Etapa": "Dispositivos QDC", "Material": dj_nome, "Quantidade": qtd, "Unidade": "un"})
     
     n_fases = 1 if tipo_ent == "Monofásico" else (2 if tipo_ent == "Bifásico" else 3)
+    polos_geral = n_fases
+    polos_idr = 2 if n_fases == 1 else 4
+    polos_dps = n_fases
+    
+    # Total de polos ativos necessários no barramento
+    espaco_ocupado_din = polos_circuitos + polos_geral + polos_idr + polos_dps
+    
+    # Aplicação da tabela de reserva obrigatória da NBR 5410 (Item 6.5.4.7)
+    if polos_circuitos <= 6: reserva = 2
+    elif polos_circuitos <= 12: reserva = 3
+    elif polos_circuitos <= 30: reserva = 4
+    else: reserva = math.ceil(polos_circuitos * 0.15)
+    
+    total_modulos_necessarios = espaco_ocupado_din + reserva
+    
+    # Enquadramento nos padrões comerciais de mercado (12, 18, 24, 36, 48 módulos)
+    if total_modulos_necessarios <= 12: padrao_qdc = 12
+    elif total_modulos_necessarios <= 18: padrao_qdc = 18
+    elif total_modulos_necessarios <= 24: padrao_qdc = 24
+    elif total_modulos_necessarios <= 36: padrao_qdc = 36
+    else: padrao_qdc = 48
+    
+    # Inserção automática do Quadro dimensionado no lote de materiais
+    materiais.append({
+        "Etapa": "Dispositivos QDC", 
+        "Material": f"Quadro de Distribuição (QDC) Embutir para {padrao_qdc} Módulos DIN com Barramento Monofásico/Bifásico Completo (NBR 5410: {espaco_ocupado_din} ocupados + {reserva} reserva)", 
+        "Quantidade": 1, 
+        "Unidade": "un"
+    })
     materiais.append({"Etapa": "Proteção QDC", "Material": "DPS Classe II 45kA", "Quantidade": n_fases, "Unidade": "un"})
-    materiais.append({"Etapa": "Proteção QDC", "Material": f"IDR {'Bipolar' if n_fases==1 else 'Tetrapolar'} 63A", "Quantidade": 1, "Unidade": "un"})
+    materiais.append({"Etapa": "Proteção QDC", "Material": f"IDR {'Bipolar' if n_fases==1 else 'Tetrapolar'} 63A 30mA", "Quantidade": 1, "Unidade": "un"})
     materiais.append({"Etapa": "Proteção QDC", "Material": f"Disjuntor Geral DIN {tipo_ent} {dj_pad}", "Quantidade": 1, "Unidade": "un"})
     
     total_tomadas = max(6, math.ceil(area_ref * 0.35))
     total_interruptores = max(3, math.ceil(area_ref * 0.12))
-    materiais.append({"Etapa": "Acabamento Elétrico", "Material": "Tomada Simples 10A 4x2", "Quantidade": total_tomadas, "Unidade": "un"})
+    materiais.append({"Etapa": "Acabamento Elétrico", "Material": "Tomada Simples 10A 4x2 Completa", "Quantidade": total_tomadas, "Unidade": "un"})
     materiais.append({"Etapa": "Acabamento Elétrico", "Material": "Interruptor Simples com Placa 4x2", "Quantidade": total_interruptores, "Unidade": "un"})
     
     if any(c["Cabo"] == "4.0 mm²" for c in st.session_state.lista_circuitos):
-        materiais.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 4.0 mm² (100m)", "Quantidade": 1, "Unidade": "rl"})
+        materiais.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 4.0 mm² (100m)", "Quantidade": 1, "Unidade": "rl"})
     if any(c["Cabo"] == "6.0 mm²" for c in st.session_state.lista_circuitos):
-        materiais.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 6.0 mm² (100m)", "Quantidade": 1, "Unidade": "rl"})
+        materiais.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 6.0 mm² (100m)", "Quantidade": 1, "Unidade": "rl"})
     st.session_state.lista_materiais_eletricos = materiais
 
 tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "📥 3. Fechamento & Relatório PDF"])
@@ -196,6 +231,7 @@ with tab_eletrica:
                 {"Circuito": "12", "Descrição": "TUE - Chuveiro Master Suíte", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 35.45, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "RS", "Tensão": 220, "R_val": "3900", "S_val": "3900", "T_val": "0", "Tipo": "Bifásico"}
             ]
             st.rerun()
+
     st.markdown("---")
     st.write("### 🛠️ Opção 2: Lançar Circuito Customizado no Quadro")
     col_a1, col_a2, col_a3, col_a4 = st.columns(4)
@@ -226,7 +262,6 @@ with tab_eletrica:
                 })
                 st.success("Circuito adicionado!")
                 st.rerun()
-
 pot_total = sum(int(c["Carga"]) for c in st.session_state.lista_circuitos)
 dados_c_global = CONCESSIONARIAS[concessionaria_sel]
 if pot_total <= dados_c_global["limite_mono"]:
@@ -245,6 +280,7 @@ if st.session_state.lista_circuitos:
     st.write("#### 📋 Painel de Controle: Padrão Homologado")
     st.success(f"📋 **Enquadramento Técnico ({dados_c_global['norma']}):** Fornecimento **{tipo_entrada}** | Disjuntor Geral da Caixa: **{dj_padrao}** | Ramal de Entrada: **{cabo_padrao}**")
     st.dataframe(pd.DataFrame(st.session_state.lista_circuitos), use_container_width=True)
+
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
@@ -269,8 +305,7 @@ def gerar_pdf_completo_obra():
         [Paragraph("Disjuntor Geral da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)],
         [Paragraph("Modelo de Caixa Sugerido", estilo_celula), Paragraph(detalhe_caixa, estilo_celula_esq)]
     ]
-    # CORREÇÃO DEFINITIVA: Larguras de colunas fixadas numericamente para evitar o SyntaxError
-    t_pad = Table(dados_padrao_pdf, colWidths=[180, 360])
+    t_pad = Table(dados_padrao_pdf, colWidths=[200, 545])
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_pad)
 
@@ -293,8 +328,7 @@ def gerar_pdf_completo_obra():
         tot_s = sum(int(c['S_val']) for c in st.session_state.lista_circuitos)
         dados_qdc_pdf.append([Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph(f"<b>Potência Total Instalada: {pot_total} W</b>", estilo_celula), "", "", "", "", "", "", "", "", "", "", Paragraph(f"<b>{tot_r}VA</b>", estilo_celula), Paragraph(f"<b>{tot_s}VA</b>", estilo_celula)])
         
-        # CORREÇÃO DEFINITIVA: Larguras de colunas fixadas numericamente para as 14 colunas
-        t_qdc = Table(dados_qdc_pdf, colWidths=[30, 165, 45, 45, 45, 45, 45, 45, 40, 45, 40, 45, 55, 55])
+        t_qdc = Table(dados_qdc_pdf, colWidths=[30, 165, 45, 45, 45, 45, 40, 45, 40, 40, 35, 45, 60, 65])
         t_qdc.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
             ('SPAN', (1,-1), (11,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 2),
@@ -307,17 +341,17 @@ def gerar_pdf_completo_obra():
         dados_civil = [[Paragraph("<b>Etapa Civil</b>", estilo_celula), Paragraph("<b>Material Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
         for mat in st.session_state.lista_materiais_civil:
             dados_civil.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
-        t_civ = Table(dados_civil, colWidths=[120, 310, 60, 50])
+        t_civ = Table(dados_civil, colWidths=[120, 400, 65, 60])
         t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
         
     if st.session_state.lista_materiais_eletricos:
         elementos.append(PageBreak())
-        elementos.append(Paragraph("3. Lote de Materials e Componentes Elétricos Brutos", estilo_sub))
+        elementos.append(Paragraph("3. Lote de Materiais e Componentes Elétricos Brutos (Com Dimensionamento Normativo do QDC)", estilo_sub))
         dados_el = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Detalhado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
         for m in st.session_state.lista_materiais_eletricos:
             dados_el.append([Paragraph(m["Etapa"], estilo_celula), Paragraph(m["Material"], estilo_celula_esq), Paragraph(str(m["Quantidade"]), estilo_celula), Paragraph(m["Unidade"], estilo_celula)])
-        t_el = Table(dados_el, colWidths=[120, 310, 60, 50])
+        t_el = Table(dados_el, colWidths=[120, 400, 65, 60])
         t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_el)
 
@@ -346,7 +380,7 @@ def gerar_pdf_completo_obra():
         Paragraph("• <b>Área de Segurança:</b> Mantenha a frente deste quadro totalmente desobstruída. Nunca guarde vassouras, caixas ou objetos que dificultem o acesso rápido.", estilo_aviso_corpo),
         Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
     ]
-    t_av = Table([[caviso]], colWidths=[540])
+    t_av = Table([[caviso]], colWidths=[745])
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
     elementos.append(t_av)
     
