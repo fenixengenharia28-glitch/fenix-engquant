@@ -8,7 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.graphics.shapes import Drawing, Rect, String, Line
 
-# Configuração da página - DEVE ser o primeiro comando Streamlit
+# Configuração primária obrigatória do Streamlit
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
 st.title("🏗️ Fênix EngCalculus Pro")
@@ -58,7 +58,7 @@ elif pot_total <= dados_c["limite_bi"]:
 else:
     tipo_entrada, cabo_padrao, dj_padrao = "Trifásico", "25.0 mm²", "80 A"
 
-# Geração dos circuitos
+# Geração automática da árvore de circuitos
 lista_circuitos = []
 lista_circuitos.append({"Circuito": "C1", "Descrição": "Iluminação Geral", "Carga (W)": pot_ilum, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"})
 
@@ -86,7 +86,7 @@ AVISO_NBR = (
     "CHOQUE SE NÃO EXECUTADO POR PROFISSIONAL QUALIFICADO. MANTENHA AS PORTAS DO QUADRO SEMPRE FECHADAS. "
     "VERIFIQUE O FUNCIONAMENTO DO DISPOSITIVO DR MENSALMENTE APERTANDO O BOTÃO DE TESTE (T)."
 )
-# --- FUNÇÃO DO MOTOR GRÁFICO (DESENHO DOS DIAGRAMAS) ---
+# --- FUNÇÃO DO MOTOR GRÁFICO (DESENHO DOS DIAGRAMAS VETORIAIS) ---
 def desenhar_unifilar_grafico():
     d = Drawing(540, 140)
     d.add(Rect(10, 10, 520, 120, fillColor=colors.HexColor('#F8FAFC'), strokeColor=colors.HexColor('#94A3B8'), strokeWidth=1))
@@ -125,7 +125,7 @@ def desenhar_multifilar_grafico():
     for idx, c in enumerate(lista_circuitos):
         x = 15 + idx * (largura_modulo + espacamento)
         
-        d.add(Rect(x, 30, largura_modulo, 90, fillColor=colors.FFFFFF, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1.5))
+        d.add(Rect(x, 30, largura_modulo, 90, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1.5))
         d.add(Rect(x, 95, largura_modulo, 25, fillColor=colors.HexColor('#1E3A8A'), strokeColor=None))
         d.add(String(x + (largura_modulo/2), 103, c["Circuito"], textAnchor='middle', fillColor=colors.white, fontSize=10, fontName='Helvetica-Bold'))
         
@@ -137,8 +137,7 @@ def desenhar_multifilar_grafico():
         d.add(Line(x + (largura_modulo/2), 30, x + (largura_modulo/2), 15, strokeColor=colors.black, strokeWidth=1.5))
 
     return d
-
-# --- GERADOR CONSOLIDADO DE PDF (ReportLab) ---
+# --- GERADOR CONSOLIDADO DE DOCUMENTAÇÃO PDF ---
 def gerar_pdf_projeto_completo():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -160,7 +159,7 @@ def gerar_pdf_projeto_completo():
     for c in lista_circuitos:
         dados_tabela.append([c["Circuito"], c["Descrição"], f"{c['Carga (W)']}W", f"{c['Tensão (V)']}V", c["Cabo"], c["Disjuntor"]])
     
-    # 70+230+60+60+60+60 = 540 (Largura exata da mancha da folha Letter)
+    # 70 + 230 + 60 + 60 + 60 + 60 = 540 (Largura exata da folha Letter)
     t = Table(dados_tabela, colWidths=[70, 230, 60, 60, 60, 60])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
