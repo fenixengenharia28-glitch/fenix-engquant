@@ -41,13 +41,13 @@ with col_c2:
     st.write("### 🛠️ Ações Globais de Escopo")
     if st.button("🏡 Injetar Kit Casa Completa (Autônomo)", key="btn_kit_casa"):
         st.session_state.lista_circuitos = [
-            {"Circuito": "C1", "Descrição": "Torneira Elétrica (Cozinha)", "Carga (W)": 5000, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "32 A", "Tipo": "Bifásico"},
-            {"Circuito": "C2", "Descrição": "Iluminação Cozinha e Copa", "Carga (W)": 800, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"},
-            {"Circuito": "C3", "Descrição": "Iluminação Sala e Quartos", "Carga (W)": 1200, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"},
-            {"Circuito": "C4", "Descrição": "Tomadas Cozinha e Área Serviço", "Carga (W)": 4400, "Tensão (V)": dados_c["fase"], "Cabo": "4.0 mm²", "Disjuntor": "25 A", "Tipo": "Monofásico"},
-            {"Circuito": "C5", "Descrição": "Tomadas de Uso Geral (TUGs)", "Carga (W)": 2200, "Tensão (V)": dados_c["fase"], "Cabo": "2.5 mm²", "Disjuntor": "20 A", "Tipo": "Monofásico"},
-            {"Circuito": "C6", "Descrição": "Chuveiro Elétrico", "Carga (W)": 7500, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "40 A", "Tipo": "Bifásico"},
-            {"Circuito": "C7", "Descrição": "Ar Condicionado", "Carga (W)": 2000, "Tensão (V)": dados_c["linha"], "Cabo": "2.5 mm²", "Disjuntor": "16 A", "Tipo": "Bifásico"}
+            {"Circuito": "Circuito 1", "Descrição": "Torneira Elétrica (Cozinha)", "Carga (W)": 5000, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "32 A", "Tipo": "Bifásico"},
+            {"Circuito": "Circuito 2", "Descrição": "Iluminação Cozinha e Copa", "Carga (W)": 800, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"},
+            {"Circuito": "Circuito 3", "Descrição": "Iluminação Sala e Quartos", "Carga (W)": 1200, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"},
+            {"Circuito": "Circuito 4", "Descrição": "Tomadas Cozinha e Área Serviço", "Carga (W)": 4400, "Tensão (V)": dados_c["fase"], "Cabo": "4.0 mm²", "Disjuntor": "25 A", "Tipo": "Monofásico"},
+            {"Circuito": "Circuito 5", "Descrição": "Tomadas de Uso Geral (TUGs)", "Carga (W)": 2200, "Tensão (V)": dados_c["fase"], "Cabo": "2.5 mm²", "Disjuntor": "20 A", "Tipo": "Monofásico"},
+            {"Circuito": "Circuito 6", "Descrição": "Chuveiro Elétrico", "Carga (W)": 7500, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "40 A", "Tipo": "Bifásico"},
+            {"Circuito": "Circuito 7", "Descrição": "Ar Condicionado", "Carga (W)": 2000, "Tensão (V)": dados_c["linha"], "Cabo": "2.5 mm²", "Disjuntor": "16 A", "Tipo": "Bifásico"}
         ]
         st.success("Kit residencial estruturado!")
         st.rerun()
@@ -78,10 +78,10 @@ with col_a4:
                 cabo_calc, dj_calc = "1.5 mm²", "10 A"
 
             st.session_state.lista_circuitos.append({
-                "Circuito": f"C{c_num}", "Descrição": txt_desc, "Carga (W)": num_carga,
+                "Circuito": f"Circuito {c_num}", "Descrição": txt_desc, "Carga (W)": num_carga,
                 "Tensão (V)": v_tensao, "Cabo": cabo_calc, "Disjuntor": dj_calc, "Tipo": sel_tipo
             })
-            st.success(f"Circuito C{c_num} indexado!")
+            st.success(f"Circuito {c_num} indexado!")
             st.rerun()
 # --- CÁLCULO GERAL DO PADRÃO DE ATENDIMENTO DA PLANILHA ---
 pot_total = sum(c["Carga (W)"] for c in st.session_state.lista_circuitos)
@@ -95,7 +95,7 @@ else:
 # --- ALGORITMOS DOS MOTORES GRÁFICOS NORMATIVOS ---
 def gerar_desenho_unifilar():
     n_circ = len(st.session_state.lista_circuitos)
-    altura_d = max(160, (n_circ * 35) + 40)
+    altura_d = max(160, (n_circ * 35) + 60)
     d = Drawing(540, altura_d)
     
     d.add(Line(20, altura_d - 40, 100, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
@@ -129,8 +129,8 @@ def gerar_desenho_multifilar():
     
     x_fase1, x_fase2, x_neutro, x_terra = 160, 190, 220, 250
     
-    d.add(String(x_fase1, altura_d - 20, "R", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.red))
-    d.add(String(x_fase2, altura_d - 20, "S", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
+    d.add(String(x_fase1, altura_d - 20, "Fase R", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.red))
+    d.add(String(x_fase2, altura_d - 20, "Fase S", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
     d.add(String(x_neutro, altura_d - 20, "N", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.blue))
     d.add(String(x_terra, altura_d - 20, "T", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
     
@@ -144,7 +144,7 @@ def gerar_desenho_multifilar():
         
         if idx % 2 == 0:
             d.add(Rect(20, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
-            d.add(String(25, y + 2, c["Circuito"], fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+            d.add(String(25, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
             d.add(String(25, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
             d.add(String(105, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
             
@@ -156,7 +156,7 @@ def gerar_desenho_multifilar():
                 d.add(Circle(x_fase2, y - 6, 2.5, fillColor=colors.black, strokeColor=colors.black))
         else:
             d.add(Rect(300, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
-            d.add(String(305, y + 2, c["Circuito"], fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#0D9488')))
+            d.add(String(305, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#0D9488')))
             d.add(String(305, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
             d.add(String(385, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
             
@@ -190,7 +190,7 @@ def gerar_pdf_etiqueta_qdc():
     for c in st.session_state.lista_circuitos:
         dados_tabela.append([c["Circuito"], c["Descrição"], f"{c['Carga (W)']}W", f"{c['Tensão (V)']}V", c["Cabo"], c["Disjuntor"]])
     
-    t = Table(dados_tabela, colWidths=[40, 220, 70, 70, 70, 70])
+    t = Table(dados_tabela, colWidths=[70, 230, 60, 60, 60, 60])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -213,7 +213,9 @@ def gerar_pdf_etiqueta_qdc():
     elementos.append(gerar_desenho_multifilar())
     elementos.append(Spacer(1, 10))
     
-    elementos.append(Paragraph("4. Sinalização Compulsória de Segurança (NBR 5410)", estilo_sub))
+    elementos.append(Paragraph("4. Sinalização Compulsória de Segurança (Item 6.1.5.1)", estilo_sub))
+    
+    # CORREÇÃO DA SINTAXE DE STRING DO AVISO AQUI
     AVISO_TEXTO = [[Paragraph(f"<b>⚠️ {AVISO_NBR}</b>", estilo_aviso)]]
     t_aviso = Table(AVISO_TEXTO, colWidths=[540])
     t_aviso.setStyle(TableStyle([
