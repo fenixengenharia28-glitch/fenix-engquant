@@ -45,7 +45,6 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        # CORREÇÃO DEFINITIVA DO TYPEERROR: Extrai estritamente o índice [0] da tupla retornada
         if row and row[0]:
             return json.loads(row[0])
     except Exception:
@@ -81,8 +80,12 @@ with st.sidebar:
         f_resp = st.checkbox("Definir como Responsável pelo Projeto?")
         if st.form_submit_button("Cadastrar Funcionário"):
             if f_nome and f_reg:
-                base_ids = [f["id"] for f in st.session_state.funcionarios] if st.session_state.funcionarios else
-                novo_id = max(base_ids) + 1 if base_ids else 1
+                # CORREÇÃO DEFINITIVA DO SYNTAXERROR: Lógica tradicional if/else sem quebras
+                if st.session_state.funcionarios:
+                    base_ids = [f["id"] for f in st.session_state.funcionarios]
+                    novo_id = max(base_ids) + 1
+                else:
+                    novo_id = 1
                 st.session_state.funcionarios.append({"id": novo_id, "Nome": f_nome, "Função": f_func, "CREA_RE": f_reg, "Responsavel": f_resp})
                 salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                 st.success("Funcionário Cadastrado!")
@@ -91,7 +94,7 @@ with st.sidebar:
     if st.session_state.funcionarios:
         for idx, f in enumerate(list(st.session_state.funcionarios)):
             c_label = "⭐ RESPONSÁVEL" if f["Responsavel"] else "Colaborador"
-            col_f1, col_f2 = st.columns()
+            col_f1, col_f2 = st.columns([4, 1])
             with col_f1: st.write(f"**{f['Nome']}** ({f['Função']}) - {c_label}")
             with col_f2:
                 if st.button("❌", key=f"del_f_{f['id']}_{idx}"):
@@ -153,7 +156,8 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             bitola_final = bitolas_comerciais[idx + 1]
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
-    disjuntores_comerciais =
+        
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -186,6 +190,7 @@ with tab_civil:
             ]
             st.rerun()
     else:
+        st.write("#### 🏠 Lançamento de Ambientes da Prancha Customizada")
         cc1, cc2, cc3 = st.columns(3)
         with cc1: nome_c = st.text_input("Nome do Cômodo:")
         with cc2: comp_c = st.number_input("Comprimento (m):", value=4.0)
@@ -206,6 +211,7 @@ with tab_civil:
                     {"Etapa": "03. Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total * 1.1, 1), "Unidade": "m²"}
                 ]
                 st.rerun()
+                
     if st.session_state.lista_materiais_civil:
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
 with tab_eletrica:
@@ -331,6 +337,7 @@ def gerar_pdf_completo_obra():
     t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 500.0])
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_pad)
+
     if st.session_state.lista_circuitos_calc:
         elementos.append(PageBreak())
         elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Distribuição por Fase", estilo_sub))
@@ -379,7 +386,7 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_materiais_eletricos:
         elementos.append(PageBreak())
         elementos.append(Paragraph("3. Lote de Componentes Elétricos Brutos e Infraestrutura Terminais", estilo_sub))
-        dados_el_pdf = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", strokeColor:=colors.black)]]
+        dados_el_pdf = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
         for mat_e in st.session_state.lista_materiais_eletricos:
             dados_el_pdf.append([Paragraph(mat_e["Etapa"], estilo_celula), Paragraph(mat_e["Material"], estilo_celula_esq), Paragraph(str(mat_e["Quantidade"]), estilo_celula), Paragraph(mat_e["Unidade"], estilo_celula)])
         t_el = Table(dados_el_pdf, colWidths=[120.0, 400.0, 140.0, 80.0])
@@ -401,4 +408,4 @@ def gerar_pdf_completo_obra():
 
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão")
-    st.download_button(label="📥 Baixar Memorial Técnico Consolidado Completo (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
+    st.download_button(label="📥 Baixar Memorial Técnico Consolidado Completo (PDF)", data=generar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
