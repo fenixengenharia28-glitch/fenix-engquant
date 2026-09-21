@@ -28,23 +28,29 @@ def init_db():
 
 init_db()
 def salvar_dados_permanentes(chave, valor):
-    conn = sqlite3.connect("fenix_database.db")
-    cursor = conn.cursor()
-    json_dados = json.dumps(valor)
-    cursor.execute("INSERT OR REPLACE INTO configuracoes (id, dados) VALUES (?, ?)", (chave, json_dados))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect("fenix_database.db")
+        cursor = conn.cursor()
+        json_dados = json.dumps(valor)
+        cursor.execute("INSERT OR REPLACE INTO configuracoes (id, dados) VALUES (?, ?)", (chave, json_dados))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        st.error(f"Erro ao salvar dados: {e}")
 
 def carregar_dados_permanentes(chave, valor_padrao):
-    conn = sqlite3.connect("fenix_database.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return json.loads(row)
+    try:
+        conn = sqlite3.connect("fenix_database.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
+        row = cursor.fetchone()
+        conn.close()
+        # CORREÇÃO DEFINITIVA DO TYPEERROR: Extrai estritamente o índice [0] da tupla retornada
+        if row and row[0]:
+            return json.loads(row[0])
+    except Exception:
+        return valor_padrao
     return valor_padrao
-
 # Inicialização garantida de todas as variáveis para evitar KeyError e AttributeError
 if "lista_materiais_civil" not in st.session_state: st.session_state.lista_materiais_civil = []
 if "lista_materiais_eletricos" not in st.session_state: st.session_state.lista_materiais_eletricos = []
@@ -75,26 +81,28 @@ with st.sidebar:
         f_resp = st.checkbox("Definir como Responsável pelo Projeto?")
         if st.form_submit_button("Cadastrar Funcionário"):
             if f_nome and f_reg:
-                base_ids = [f["id"] for f in st.session_state.funcionarios] if st.session_state.funcionarios else [0]
-                novo_id = max(base_ids) + 1
+                base_ids = [f["id"] for f in st.session_state.funcionarios] if st.session_state.funcionarios else
+                novo_id = max(base_ids) + 1 if base_ids else 1
                 st.session_state.funcionarios.append({"id": novo_id, "Nome": f_nome, "Função": f_func, "CREA_RE": f_reg, "Responsavel": f_resp})
                 salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                 st.success("Funcionário Cadastrado!")
                 st.rerun()
-
-    st.write("📋 **Lista de Colaboradores e Responsabilidade:**")
+    st.write("📋 **Lista de Colaboradores:**")
     if st.session_state.funcionarios:
         for idx, f in enumerate(list(st.session_state.funcionarios)):
             c_label = "⭐ RESPONSÁVEL" if f["Responsavel"] else "Colaborador"
-            col_f1, col_f2 = st.columns([4, 1])
+            col_f1, col_f2 = st.columns()
             with col_f1: st.write(f"**{f['Nome']}** ({f['Função']}) - {c_label}")
             with col_f2:
                 if st.button("❌", key=f"del_f_{f['id']}_{idx}"):
                     st.session_state.funcionarios.pop(idx)
                     salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                     st.rerun()
+    else:
+        st.info("Nenhum funcionário cadastrado.")
+
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP Corporativo: Memorial de Engenharia, Dimensionamento CAD e Segurança Eletrônica")
+st.subheader("ERP Corporativo Base SQLite: Memorial de Engenharia, Dimensionamento CAD e Segurança")
 st.markdown("---")
 
 st.write("### 👤 Cadastro e Homologação do Cliente")
@@ -106,8 +114,6 @@ with col_cl3: cliente_cidade = st.text_input("Cidade / UF:", value=carregar_dado
 salvar_dados_permanentes("cli_nome", cliente_nome)
 salvar_dados_permanentes("cli_end", cliente_endereco)
 salvar_dados_permanentes("cli_cid", cliente_cidade)
-
-# MAPEAMENTO COMPLETO DE TODAS AS PRINCIPAIS CONCESSIONÁRIAS DO BRASIL POR ESTADO
 CONCESSIONARIAS = {
     "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
     "ENEL SP (SP) - CNC-OM-BR-24": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
@@ -115,45 +121,29 @@ CONCESSIONARIAS = {
     "ENEL CE (CE) - NT-001": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
     "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT"},
     "CPFL Paulista (SP) - GED-13": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
-    "CPFL Piratininga/Santa Cruz (SP)" : {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
     "EDP SP (SP) - DIT-24": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "DIT-24"},
-    "EDP ES (ES) - DIT-24": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIT-24"},
     "COPEL (PR) - NTC 901100": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100"},
     "CELESC (SC) - N-321.0001": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001"},
-    "EQUATORIAL MA (MA) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
-    "EQUATORIAL PA (PA) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
-    "EQUATORIAL PI (PI) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
-    "EQUATORIAL AL (AL) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
-    "EQUATORIAL GO (GO) - NT-01": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "NT-01.EQ"},
-    "EQUATORIAL RS (RS) - NT-01": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NT-01.EQ"},
-    "NEOENERGIA COELBA (BA)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
-    "NEOENERGIA PERNAMBUCO (PE)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
-    "NEOENERGIA COSERN (RN)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
-    "NEOENERGIA BRASÍLIA (DF)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
-    "ENERGISA MG/RIO (MG/RJ)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-03.EN"},
-    "ENERGISA MT (MT) - NT-03": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN"},
-    "ENERGISA MS (MS) - NT-03": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN"},
-    "ENERGISA TO (TO) - NT-03": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-03.EN"},
-    "ENERGISA RO/AC (RO/AC)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-03.EN"},
+    "EQUATORIAL MA/PA/PI/AL - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
+    "NEOENERGIA BA/PE/RN/DF": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "ENERGISA MT/MS/TO/RO/AC": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN"},
     "AMAZONAS ENERGIA (AM)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-AM-01"},
     "RORAIMA ENERGIA (RR)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-RR-01"}
 }
+
 def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
     ib = potencia / (tensao * fp)
     bitola_inicial = 1.5 if tipo_carga == "Iluminação" else 2.5
-    
     bitolas_comerciais = [1.5, 2.5, 4.0, 6.0, 10.0, 16.0]
     capacidades_corrente = [17.5, 24.0, 32.0, 41.0, 57.0, 76.0]
     bitola_final = bitola_inicial
     iz_cabo = 17.5 if tipo_carga == "Iluminação" else 24.0
-    
     for b, cap in zip(bitolas_comerciais, capacidades_corrente):
         if b >= bitola_inicial and cap >= ib:
             bitola_final = b
             iz_cabo = cap
             break
-
     rho = 1 / 58.0
     while True:
         dv_perc = (2 * rho * comprimento * ib * 100) / (tensao * bitola_final)
@@ -163,8 +153,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             bitola_final = bitolas_comerciais[idx + 1]
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
-
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
+    disjuntores_comerciais =
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -173,7 +162,6 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
         elif dj >= ib:
             disjuntor_final = dj
             break
-            
     return bitola_final, disjuntor_final, "B" if tipo_carga == "Iluminação" else "C", round(ib, 2)
 
 tab_civil, tab_eletrica, tab_seguranca, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "🛡️ 3. Sistemas de Segurança", "📥 4. Fechamento & Relatório PDF"])
@@ -218,7 +206,6 @@ with tab_civil:
                     {"Etapa": "03. Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total * 1.1, 1), "Unidade": "m²"}
                 ]
                 st.rerun()
-                
     if st.session_state.lista_materiais_civil:
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
 with tab_eletrica:
@@ -243,7 +230,7 @@ with tab_eletrica:
                     "TENSÃO": item["TENSÃO"], "IB": ib_c, "COMP": item["COMP"]
                 })
             salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
-            st.success("Planta completa dimensionada e salva permanente!")
+            st.success("Planta completa dimensionada!")
             st.rerun()
     else:
         manual_pot = st.number_input("Potência Ativa do Circuito (W):", value=2200, step=100)
@@ -261,7 +248,6 @@ with tab_eletrica:
     if st.session_state.lista_circuitos_calc:
         st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
 def def_recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad, circuitos_list):
-    # Retorna toda a lista de eletrodutos, cabos brutos e caixas de embutir demandados
     materiais = [
         {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC Flexível Corrugado 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"},
         {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir Plástica 4x2", "Quantidade": max(4, math.ceil(area_ref * 0.45)), "Unidade": "un"},
@@ -295,7 +281,7 @@ with tab_seguranca:
     if st.button("📊 Processar e Sincronizar Sistemas de Segurança"):
         st.session_state.seguranca_insumos = {"cameras": n_cameras, "sensores": n_sensores, "cabo_m": m_cabo_rede}
         salvar_dados_permanentes("seguranca", st.session_state.seguranca_insumos)
-        st.success("Ativos de segurança calculados e salvos!")
+        st.success("Ativos de segurança calculados!")
         st.rerun()
 
     seg_data = [
@@ -369,7 +355,6 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # MUDANÇA DEMANDADA: Centralizar todas estas informações no meio mesclado da prancha técnica
         texto_centralizado_modelo = f"<b>Potência Instalada Total: {pot_total_calc} W | R: {tot_r}VA | S: {tot_s}VA</b>"
         dados_qdc_pdf.append([Paragraph(texto_centralizado_modelo, estilo_celula)] + [""] * 11)
         
@@ -394,7 +379,7 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_materiais_eletricos:
         elementos.append(PageBreak())
         elementos.append(Paragraph("3. Lote de Componentes Elétricos Brutos e Infraestrutura Terminais", estilo_sub))
-        dados_el_pdf = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
+        dados_el_pdf = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", strokeColor:=colors.black)]]
         for mat_e in st.session_state.lista_materiais_eletricos:
             dados_el_pdf.append([Paragraph(mat_e["Etapa"], estilo_celula), Paragraph(mat_e["Material"], estilo_celula_esq), Paragraph(str(mat_e["Quantidade"]), estilo_celula), Paragraph(mat_e["Unidade"], estilo_celula)])
         t_el = Table(dados_el_pdf, colWidths=[120.0, 400.0, 140.0, 80.0])
@@ -410,22 +395,10 @@ def gerar_pdf_completo_obra():
     t_seg.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_seg)
 
-    elementos.append(PageBreak())
-    elementos.append(Paragraph("5. Diretrizes Técnicas Regulamentares", estilo_sub))
-    caviso = [
-        Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
-        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
-        Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
-    ]
-    t_av = Table([[caviso]], colWidths=[740.0])
-    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
-    elementos.append(t_av)
-    
     doc.build(elementos)
     buffer.seek(0)
     return buffer
 
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão")
-    if st.session_state.lista_circuitos_calc:
-        st.download_button(label="📥 Baixar Memorial Técnico Consolidado Completo (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
+    st.download_button(label="📥 Baixar Memorial Técnico Consolidado Completo (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
