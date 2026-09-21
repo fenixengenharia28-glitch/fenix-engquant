@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd
 import math
 from io import BytesIO
-from reportlab.lib.pagesizes import letter, landscape, A4
+from reportlab.lib.pagesizes import landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
-
 # Configuração primária obrigatória do Streamlit
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
@@ -15,12 +14,9 @@ st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("ERP de Engenharia: Prancha com Quadro de Cargas Modelo e Esquema Multifilar")
 st.markdown("---")
 
-if "lista_circuitos" not in st.session_state:
-    st.session_state.lista_circuitos = []
-if "lista_materiais_civil" not in st.session_state:
-    st.session_state.lista_materiais_civil = []
-if "lista_materiais_eletricos" not in st.session_state:
-    st.session_state.lista_materiais_eletricos = []
+if "lista_circuitos" not in st.session_state: st.session_state.lista_circuitos = []
+if "lista_materiais_civil" not in st.session_state: st.session_state.lista_materiais_civil = []
+if "lista_materiais_eletricos" not in st.session_state: st.session_state.lista_materiais_eletricos = []
 CONCESSIONARIAS = {
     "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
     "ENEL (São Paulo)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
@@ -91,12 +87,10 @@ def gerar_desenho_multifilar():
     altura_d = max(180, (n_circ * 35) + 60)
     d = Drawing(720, altura_d)
     x_fase1, x_fase2, x_neutro, x_terra = 220, 250, 280, 310
-    
     d.add(String(x_fase1, altura_d - 15, "R", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.red))
     d.add(String(x_fase2, altura_d - 15, "S", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
     d.add(String(x_neutro, altura_d - 15, "N", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.blue))
     d.add(String(x_terra, altura_d - 15, "T", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
-    
     d.add(Line(x_fase1, altura_d - 20, x_fase1, 15, strokeColor=colors.red, strokeWidth=1.5))
     d.add(Line(x_fase2, altura_d - 20, x_fase2, 15, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
     d.add(Line(x_neutro, altura_d - 20, x_neutro, 15, strokeColor=colors.blue, strokeWidth=1.5))
@@ -133,23 +127,32 @@ with tab_civil:
     with c_civ3:
         tipo_tijolo = st.selectbox("Tipo de Alvenaria:", ["Tijolo Cerâmico Baiano", "Bloco de Concreto"], key="sb_tijolo_civil")
         espessura_contrapiso = st.number_input("Espessura do Contrapiso (cm):", min_value=3.0, value=5.0, step=0.5, key="ni_contrapiso_civil")
-
     if st.button("📊 Processar Engenharia Civil", key="btn_calcular_civil"):
         st.session_state.lista_materiais_civil = []
         vol_sapatas = qtd_sapatas * 0.4
-        peso_aco = qtd_sapatas * 25.0
-        st.session_state.lista_materiais_civil.append({"Etapa": "Infraestrutura", "Material": "Concreto Fck=30MPa", "Quantidade": round(vol_sapatas, 2), "Unidade": "m³"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Infraestrutura", "Material": "Aço CA-50", "Quantidade": round(peso_aco, 1), "Unidade": "kg"})
         vol_piso = area_obra * (espessura_contrapiso / 100.0)
-        st.session_state.lista_materiais_civil.append({"Etapa": "Estrutura e Piso", "Material": "Concreto Fck=20MPa", "Quantidade": round(vol_piso, 2), "Unidade": "m³"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Estrutura e Piso", "Material": "Tela Soldada Q-92", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"})
         area_parede = perimetro_paredes * pe_direito
         total_tijolos = math.ceil(area_parede * (25 if "Tijolo" in tipo_tijolo else 12.5) * 1.1)
-        st.session_state.lista_materiais_civil.append({"Etapa": "Alvenaria", "Material": "Tijolos/Blocos de Vedação", "Quantidade": total_tijolos, "Unidade": "un"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Piso Porcelanato Retificado", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Argamassa AC-III (Saco 20kg)", "Quantidade": math.ceil(area_obra * 1.15 * 5.0 / 20.0), "Unidade": "sc"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Tinta Látex Acrílica Premium (18L)", "Quantidade": math.ceil((area_parede * 2) * 0.25 / 18.0), "Unidade": "lt"})
-        st.success("Levantamento civil gerado!")
+        
+        st.session_state.lista_materiais_civil.extend([
+            {"Etapa": "Infraestrutura", "Material": "Concreto Usinado Fck=30MPa (Fundações)", "Quantidade": round(vol_sapatas, 2), "Unidade": "m³"},
+            {"Etapa": "Infraestrutura", "Material": "Aço CA-50 Cortado e Dobrado (Sapatas/Armações)", "Quantidade": round(qtd_sapatas * 25.0, 1), "Unidade": "kg"},
+            {"Etapa": "Estrutura e Piso", "Material": "Concreto Fck=20MPa (Contrapiso)", "Quantidade": round(vol_piso, 2), "Unidade": "m³"},
+            {"Etapa": "Estrutura e Piso", "Material": "Cimento CP II-Z-32 (Saco 50kg) - Canteiro Geral", "Quantidade": math.ceil(area_obra * 0.9), "Unidade": "sc"},
+            {"Etapa": "Estrutura e Piso", "Material": "Areia Média Lavada Comercial", "Quantidade": round(area_obra * 0.08, 1), "Unidade": "m³"},
+            {"Etapa": "Estrutura e Piso", "Material": "Brita No 1 para Concretagem", "Quantidade": round(area_obra * 0.09, 1), "Unidade": "m³"},
+            {"Etapa": "Estrutura e Piso", "Material": "Tela Eletrosoldada Q-92 para Piso", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"},
+            {"Etapa": "Estrutura e Piso", "Material": "Aço CA-60 5.0mm (Vergalhão Barra de 12m)", "Quantidade": math.ceil(perimetro_paredes * 0.5), "Unidade": "barra"},
+            {"Etapa": "Estrutura e Piso", "Material": "Madeira Pinus para Caixaria / Formas (Tábua 30cm x 3m)", "Quantidade": math.ceil(perimetro_paredes * 0.4), "Unidade": "un"},
+            {"Etapa": "Estrutura e Piso", "Material": "Prego Gerdau Polido com Cabeça 18x27 (Pacote 1kg)", "Quantidade": max(2, math.ceil(area_obra * 0.05)), "Unidade": "kg"},
+            {"Etapa": "Alvenaria", "Material": "Tijolos/Blocos de Vedação Estrutural", "Quantidade": total_tijolos, "Unidade": "un"},
+            {"Etapa": "Alvenaria", "Material": "Cal Hidratada CH-I para Argamassa Alvenaria (Saco 20kg)", "Quantidade": math.ceil(total_tijolos * 0.015), "Unidade": "sc"},
+            {"Etapa": "Impermeabilização", "Material": "Impermeabilizante de Alicerces Vedacit (Balde 18L)", "Quantidade": max(1, math.ceil(perimetro_paredes * 0.15)), "Unidade": "bd"},
+            {"Etapa": "Acabamento Civil", "Material": "Piso Porcelanato Retificado Comercial", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"},
+            {"Etapa": "Acabamento Civil", "Material": "Argamassa Colante AC-III (Saco 20kg)", "Quantidade": math.ceil(area_obra * 1.15 * 5.0 / 20.0), "Unidade": "sc"},
+            {"Etapa": "Acabamento Civil", "Material": "Tinta Látex Acrílica Premium Fosca (Lata 18L)", "Quantidade": math.ceil((area_parede * 2) * 0.25 / 18.0), "Unidade": "lt"}
+        ])
+        st.success("Levantamento civil completo gerado!")
         st.rerun()
 
     if st.session_state.lista_materiais_civil:
@@ -236,13 +239,13 @@ def gerar_pdf_completo_obra():
     estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=1)
     estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=0)
     estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['BodyText'], fontSize=8.5, textColor=colors.HexColor('#B45309'), fontName='Helvetica-Bold', spaceAfter=3)
-    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=7, leading=9.5)
+    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=7, leading=9.5, alignment=4)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS E HOMOLOGAÇÃO</b>", estilo_titulo), Spacer(1, 4)]
     elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Técnica da {concessionaria_sel}</b>", estilo_sub))
     
     dados_padrao_pdf = [
-        [Paragraph("<b>Parâmetro do Padrão</b>", estilo_celula), Paragraph("<b>Specification Conforme Norma</b>", estilo_celula_esq)],
+        [Paragraph("<b>Parâmetro do Padrão</b>", estilo_celula), Paragraph("<b>Especificação Conforme Norma Técnica Vigente</b>", estilo_celula_esq)],
         [Paragraph("Norma Técnica Base", estilo_celula), Paragraph(dados_c_global["norma"], estilo_celula_esq)],
         [Paragraph("Tipo de Fornecimento", estilo_celula), Paragraph(tipo_entrada, estilo_celula_esq)],
         [Paragraph("Cabo do Ramal (Entrada)", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
@@ -253,9 +256,8 @@ def gerar_pdf_completo_obra():
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_pad)
     elementos.append(Spacer(1, 8))
-
     if st.session_state.lista_circuitos:
-        elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Distribuição por Fase", estilo_sub))
+        elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Distribuição por Fase (Modelo do Anexo)", estilo_sub))
         cabecalhos_modelo = ["CIRC", "DESCRIÇÃO DO CIRCUITO", "POT ILUM", "POT ESP", "POT (W)", "POT (VA)", "DEM (%)", "CORR (A)", "DISJ", "COND", "FASE", "TENSÃO", "FAS R", "FAS S"]
         dados_qdc_pdf = [[Paragraph(f"<b>{h}</b>", estilo_celula) for h in cabecalhos_modelo]]
         for c in st.session_state.lista_circuitos:
@@ -270,17 +272,23 @@ def gerar_pdf_completo_obra():
             ])
         tot_r = sum(int(c['R_val']) for c in st.session_state.lista_circuitos)
         tot_s = sum(int(c['S_val']) for c in st.session_state.lista_circuitos)
-        dados_qdc_pdf.append([Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph(f"<b>Potência Total Instalada: {pot_total} W</b>", estilo_celula_esq), "", "", "", "", "", "", "", "", "", "", Paragraph(f"<b>{tot_r}VA</b>", estilo_celula), Paragraph(f"<b>{tot_s}VA</b>", estilo_celula)])
-        t_qdc = Table(dados_qdc_pdf, colWidths=[30, 160, 45, 45, 45, 45, 40, 45, 40, 45, 35, 45, 50, 50])
-        t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('SPAN', (1,-1), (11,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 2)]))
+        dados_qdc_pdf.append([Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph(f"<b>Potência Total Instalada: {pot_total} W</b>", estilo_celula), "", "", "", "", "", "", "", "", "", "", Paragraph(f"<b>{tot_r}VA</b>", estilo_celula), Paragraph(f"<b>{tot_s}VA</b>", estilo_celula)])
+        
+        t_qdc = Table(dados_qdc_pdf, colWidths=[30, 160, 45, 45, 45, 45, 40, 45, 35, 45, 35, 45, 50, 50])
+        t_qdc.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
+            ('SPAN', (1,-1), (11,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 2),
+            ('ALIGN', (0,-1), (-1,-1), 'CENTER')
+        ]))
         elementos.append(t_qdc)
         elementos.append(Spacer(1, 8))
+
     if st.session_state.lista_materiais_civil:
         elementos.append(Paragraph("2. Lote de Materiais da Construção Civil", estilo_sub))
         dados_civil = [[Paragraph("<b>Etapa Civil</b>", estilo_celula), Paragraph("<b>Material Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
         for mat in st.session_state.lista_materiais_civil:
             dados_civil.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
-        t_civ = Table(dados_civil, colWidths=[110, 260, 90, 80])
+        t_civ = Table(dados_civil, colWidths=[120, 260, 80, 80])
         t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
         elementos.append(Spacer(1, 8))
@@ -290,11 +298,10 @@ def gerar_pdf_completo_obra():
         dados_el = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Detalhado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
         for m in st.session_state.lista_materiais_eletricos:
             dados_el.append([Paragraph(m["Etapa"], estilo_celula), Paragraph(m["Material"], estilo_celula_esq), Paragraph(str(m["Quantidade"]), estilo_celula), Paragraph(m["Unidade"], estilo_celula)])
-        t_el = Table(dados_el, colWidths=[110, 260, 90, 80])
+        t_el = Table(dados_el, colWidths=[120, 260, 80, 80])
         t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_el)
         elementos.append(Spacer(1, 8))
-
     if st.session_state.lista_circuitos:
         elementos.append(Paragraph("4. Desenho Técnico Unifilar do Quadro (QDC)", estilo_sub))
         elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao))
@@ -306,7 +313,7 @@ def gerar_pdf_completo_obra():
     elementos.append(Paragraph("6. Observações Técnicas Normativas Obrigatórias (Porta do Quadro)", estilo_sub))
     caviso = [
         Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
-        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO/VERMELHO/AMARELO: Condutores de Fase | ⚪⚪ BRANCO/CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
+        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
         Paragraph("• <b>Identificação de Circuitos:</b> É obrigatório manter todos os disjuntores devidamente identificados nesta tampa de acordo com a fiação correspondente.", estilo_aviso_corpo),
         Paragraph("• <b>Teste Mensal do DR:</b> Pressione o botão 'T' (Teste) do interruptor diferencial residual mensalmente. Se ele não desarmar e desligar a energia da casa, substitua-o imediatamente (risco de choque).", estilo_aviso_corpo),
         Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela verde indica funcionamento normal; janela vermelha exige substituição imediata do módulo.", estilo_aviso_corpo),
@@ -317,7 +324,7 @@ def gerar_pdf_completo_obra():
         Paragraph("• <b>Área de Segurança:</b> Mantenha a frente deste quadro totalmente desobstruída. Nunca guarde vassouras, caixas ou objetos que dificultem o acesso rápido.", estilo_aviso_corpo),
         Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
     ]
-    t_av = Table([[caviso]], colWidths=[540])
+    t_av = Table([[caviso]], colWidths=[740])
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 5)]))
     elementos.append(t_av)
     
