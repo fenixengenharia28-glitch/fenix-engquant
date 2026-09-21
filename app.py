@@ -68,7 +68,6 @@ with col_a4:
             c_num = len(st.session_state.lista_circuitos) + 1
             v_tensao = dados_c["linha"] if sel_tipo == "Bifásico" else dados_c["fase"]
             
-            # Automação NBR 5410 de cabos e proteção por regras estáticas
             if num_carga >= 5000:
                 cabo_calc, dj_calc = "6.0 mm²", "32 A" if num_carga < 7000 else "40 A"
             elif num_carga >= 3500:
@@ -99,34 +98,25 @@ def gerar_desenho_unifilar():
     altura_d = max(160, (n_circ * 35) + 40)
     d = Drawing(540, altura_d)
     
-    # Linha do alimentador geral
     d.add(Line(20, altura_d - 40, 100, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
     d.add(String(20, altura_d - 30, f"{cabo_padrao}", fontSize=8, fontName='Helvetica-Bold'))
     
-    # Símbolo do Disjuntor Geral
-    d.add(Line(100, altura_d - 40, 115, altura_d - 50, strokeColor=colors.black, strokeWidth=2)) # Chave aberta
+    d.add(Line(100, altura_d - 40, 115, altura_d - 50, strokeColor=colors.black, strokeWidth=2))
     d.add(String(100, altura_d - 30, f"{dj_padrao}", fontSize=9, fontName='Helvetica-Bold'))
     
-    # Barramento Geral de Distribuição (Espinha dorsal vertical)
     d.add(Line(140, altura_d - 40, 140, 20, strokeColor=colors.black, strokeWidth=2))
     d.add(Line(115, altura_d - 40, 140, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
     
-    # Renderização das derivações dos circuitos
     for idx, c in enumerate(st.session_state.lista_circuitos):
         y = (altura_d - 70) - (idx * 35)
-        # Ponto de conexão no barramento
         d.add(Circle(140, y, 2, fillColor=colors.black, strokeColor=colors.black))
-        # Linha paralela de derivação
         d.add(Line(140, y, 200, y, strokeColor=colors.black, strokeWidth=1.2))
-        # Símbolo do disjuntor do circuito
         d.add(Line(200, y, 215, y - 10, strokeColor=colors.black, strokeWidth=1.5))
         d.add(String(195, y + 6, c["Disjuntor"], fontSize=8, fontName='Helvetica-Bold'))
-        # Saída com a indicação da fiação e seta explicativa
         d.add(Line(215, y, 260, y, strokeColor=colors.black, strokeWidth=1.2))
         d.add(Line(255, y + 4, 260, y, strokeColor=colors.black, strokeWidth=1.2))
         d.add(Line(255, y - 4, 260, y, strokeColor=colors.black, strokeWidth=1.2))
         
-        # Tags de Engenharia NBR
         d.add(String(225, y + 6, c["Cabo"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
         d.add(String(270, y - 3, f"{c['Circuito']}: {c['Descrição']} ({c['Carga (W)']}W)", fontSize=8, fontName='Helvetica'))
         
@@ -137,58 +127,48 @@ def gerar_desenho_multifilar():
     altura_d = max(200, (n_circ * 45) + 80)
     d = Drawing(540, altura_d)
     
-    # Coordenadas X fixas dos barramentos verticais principais
     x_fase1, x_fase2, x_neutro, x_terra = 160, 190, 220, 250
     
-    # Títulos superiores das linhas de força
     d.add(String(x_fase1, altura_d - 20, "R", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.red))
     d.add(String(x_fase2, altura_d - 20, "S", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
     d.add(String(x_neutro, altura_d - 20, "N", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.blue))
     d.add(String(x_terra, altura_d - 20, "T", textAnchor='middle', fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
     
-    # Desenho dos barramentos longitudinais verticais completos
     d.add(Line(x_fase1, altura_d - 25, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.5))
     d.add(Line(x_fase2, altura_d - 25, x_fase2, 20, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
     d.add(Line(x_neutro, altura_d - 25, x_neutro, 20, strokeColor=colors.blue, strokeWidth=1.5))
     d.add(Line(x_terra, altura_d - 25, x_terra, 20, strokeColor=colors.HexColor('#16A34A'), strokeWidth=1.2))
     
-    # Renderização modular dos disjuntores e pontes à esquerda e direita
     for idx, c in enumerate(st.session_state.lista_circuitos):
         y = (altura_d - 65) - (idx * 45)
         
         if idx % 2 == 0:
-            # Lado Esquerdo do Painel Geral
             d.add(Rect(20, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
-            d.add(String(25, y.toFixed ? y + 2 : y + 2, c["Circuito"], fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+            d.add(String(25, y + 2, c["Circuito"], fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
             d.add(String(25, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
             d.add(String(105, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
             
-            # Interligação elétrica e nós físicos na Fase 1 (R)
             d.add(Line(110, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
             d.add(Circle(x_fase1, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
             
-            # Se for Bifásico, conecta também na Fase 2 (S)
             if c["Tipo"] == "Bifásico":
                 d.add(Line(110, y - 6, x_fase2, y - 6, strokeColor=colors.black, strokeWidth=1))
                 d.add(Circle(x_fase2, y - 6, 2.5, fillColor=colors.black, strokeColor=colors.black))
         else:
-            # Lado Direito do Painel Geral
             d.add(Rect(300, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
             d.add(String(305, y + 2, c["Circuito"], fontSize=9, fontName='Helvetica-Bold', fillColor=colors.HexColor('#0D9488')))
             d.add(String(305, y - 8, c["Disjuntor"], fontSize=7, fontName='Helvetica'))
             d.add(String(385, y - 8, f"{c['Carga (W)']}W", textAnchor='end', fontSize=7, fillColor=colors.grey))
             
-            # Interligação elétrica e nós físicos na Fase 2 (S)
             d.add(Line(290, y, x_fase2, y, strokeColor=colors.black, strokeWidth=1))
             d.add(Circle(x_fase2, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
             
-            # Conexão de retorno de Neutro/Terra no lado correspondente
             if c["Tipo"] == "Monofásico":
                 d.add(Line(290, y - 6, x_neutro, y - 6, strokeColor=colors.blue, strokeWidth=0.8))
                 d.add(Circle(x_neutro, y - 6, 2, fillColor=colors.blue, strokeColor=colors.blue))
 
     return d
-# --- ENGINE CONSOLIDADA DA DOCUMENTAÇÃO EM PDF (ReportLab) ---
+# --- ENGINE CONSOLIDADA DA DOCUMENTAÇÃO EM PDF ---
 def gerar_pdf_etiqueta_qdc():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -205,13 +185,12 @@ def gerar_pdf_etiqueta_qdc():
     elementos.append(Paragraph(f"<b>Configuração Geral:</b> Sistema {tipo_entrada} | Distribuidor Geral: {dj_padrao} | Base: {concessionaria_sel}", estilo_corpo))
     elementos.append(Spacer(1, 6))
     
-    # 1. Tabela Comercial de Cargas
     elementos.append(Paragraph("1. Tabela Descritiva das Cargas e Circuitos (Porta Interna)", estilo_sub))
     dados_tabela = [["Circ", "Descrição do Campo", "Potência", "Tensão", "Condutor", "Disjuntor"]]
     for c in st.session_state.lista_circuitos:
         dados_tabela.append([c["Circuito"], c["Descrição"], f"{c['Carga (W)']}W", f"{c['Tensão (V)']}V", c["Cabo"], c["Disjuntor"]])
     
-    t = Table(dados_tabela, colWidths=)
+    t = Table(dados_tabela, colWidths=[40, 220, 70, 70, 70, 70])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -226,20 +205,17 @@ def gerar_pdf_etiqueta_qdc():
     elementos.append(t)
     elementos.append(Spacer(1, 10))
     
-    # 2. Inserção Gráfica do Diagrama Unifilar
     elementos.append(Paragraph("2. Diagrama Unifilar do Quadro Geral", estilo_sub))
-    elementos.append(gerar_unifilar_desenho = gerar_desenho_unifilar())
+    elementos.append(gerar_desenho_unifilar())
     elementos.append(Spacer(1, 10))
     
-    # 3. Inserção Gráfica do Diagrama Multifilar
     elementos.append(Paragraph("3. Diagrama Multifilar Completo de Distribuição de Barramentos", estilo_sub))
-    elementos.append(gerar_multifilar_desenho = gerar_desenho_multifilar())
+    elementos.append(gerar_desenho_multifilar())
     elementos.append(Spacer(1, 10))
     
-    # 4. Placa Adesiva de Advertência Normativa
     elementos.append(Paragraph("4. Sinalização Compulsória de Segurança (NBR 5410)", estilo_sub))
     AVISO_TEXTO = [[Paragraph(f"<b>⚠️ {AVISO_NBR}</b>", estilo_aviso)]]
-    t_aviso = Table(AVISO_TEXTO, colWidths=)
+    t_aviso = Table(AVISO_TEXTO, colWidths=[540])
     t_aviso.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')),
         ('BORDER', (0,0), (-1,-1), 1.5, colors.HexColor('#EF4444')),
