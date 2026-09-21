@@ -12,17 +12,15 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("Plataforma Autônoma: Lançamento por Circuito e Separação de Quantitativos")
+st.subheader("ERP de Engenharia: Quantitativos Detalhados Civil e Elétrico")
 st.markdown("---")
 
-# Definição Global do Aviso Obrigatório NBR 5410
 AVISO_NBR = (
     "ADVERTÊNCIA: ADICIONAR OU MODIFICAR COMPONENTES DOS CIRCUITOS ELÉTRICOS PODE GERAR RISCO DE SOBRECARGA OU "
     "CHOQUE SE NÃO EXECUTADO POR PROFISSIONAL QUALIFICADO. MANTENHA AS PORTAS DO QUADRO SEMPRE FECHADAS. "
     "VERIFIQUE O FUNCIONAMENTO DO DISPOSITIVO DR MENSALMENTE APERTANDO O BOTÃO DE TESTE (T)."
 )
 
-# Banco de dados de concessionárias brasileiras
 CONCESSIONARIAS = {
     "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000},
     "ENEL (São Paulo)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000},
@@ -35,42 +33,47 @@ CONCESSIONARIAS = {
     "EQUATORIAL": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000}
 }
 
-# Inicialização das memórias técnicas da sessão
 if "lista_circuitos" not in st.session_state:
     st.session_state.lista_circuitos = []
 if "lista_materiais_civil" not in st.session_state:
     st.session_state.lista_materiais_civil = []
 if "lista_materiais_eletricos" not in st.session_state:
     st.session_state.lista_materiais_eletricos = []
-
-# Inicialização de materiais elétricos estruturados base
-def recalcular_materiais_brutos_eletricos(area_ref):
-    n_circ = len(st.session_state.lista_circuitos)
-    if n_circ == 0:
+def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
+    if not st.session_state.lista_circuitos:
         st.session_state.lista_materiais_eletricos = []
         return
-        
-    st.session_state.lista_materiais_eletricos = [
-        {"Etapa": "Infra Elétrica", "Material": "Eletroduto Corrugado PVC 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"},
-        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir 4x2 PVC", "Quantidade": max(4, math.ceil(area_ref * 0.45)), "Unidade": "un"},
-        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir 4x4 PVC", "Quantidade": max(2, math.ceil(area_ref * 0.15)), "Unidade": "un"},
-        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 1.5 mm² (Rolo 100m) - Retornos", "Quantidade": max(1, math.ceil(area_ref * 1.5 / 100.0)), "Unidade": "rl"},
-        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 2.5 mm² (Rolo 100m) - Tomadas", "Quantidade": max(1, math.ceil(area_ref * 2.8 / 100.0)), "Unidade": "rl"},
-        {"Etapa": "Dispositivos", "Material": "Quadro de Distribuição (QDC) de Embutir DIN", "Quantidade": 1, "Unidade": "un"}
+    materiais = [
+        {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"},
+        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir 4x2", "Quantidade": max(4, math.ceil(area_ref * 0.45)), "Unidade": "un"},
+        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir 4x4", "Quantidade": max(2, math.ceil(area_ref * 0.15)), "Unidade": "un"},
+        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 1.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 1.5 / 100.0)), "Unidade": "rl"},
+        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 2.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 2.8 / 100.0)), "Unidade": "rl"}
     ]
+    contagem_dj = {}
+    for c in st.session_state.lista_circuitos:
+        chave_dj = f"Disjuntor DIN {c['Tipo']} {c['Disjuntor']}"
+        contagem_dj[chave_dj] = contagem_dj.get(chave_dj, 0) + 1
+    for dj_nome, qtd in contagem_dj.items():
+        materiais.append({"Etapa": "Dispositivos QDC", "Material": dj_nome, "Quantidade": qtd, "Unidade": "un"})
     
-    # Incrementa rolos de cabos mais grossos dinamicamente conforme os circuitos lançados
-    tem_cabo_4 = any(c["Cabo"] == "4.0 mm²" for c in st.session_state.lista_circuitos)
-    tem_cabo_6 = any(c["Cabo"] == "6.0 mm²" for c in st.session_state.lista_circuitos)
-    if tem_cabo_4:
-        st.session_state.lista_materiais_eletricos.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 4.0 mm² (Rolo 100m)", "Quantidade": 1, "Unidade": "rl"})
-    if tem_cabo_6:
-        st.session_state.lista_materiais_eletricos.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 6.0 mm² (Rolo 100m)", "Quantidade": 1, "Unidade": "rl"})
+    n_fases = 1 if tipo_ent == "Monofásico" else (2 if tipo_ent == "Bifásico" else 3)
+    materiais.append({"Etapa": "Proteção QDC", "Material": "DPS Classe II 45kA", "Quantidade": n_fases, "Unidade": "un"})
+    materiais.append({"Etapa": "Proteção QDC", "Material": f"IDR {'Bipolar' if n_fases==1 else 'Tetrapolar'} 63A", "Quantidade": 1, "Unidade": "un"})
+    materiais.append({"Etapa": "Proteção QDC", "Material": f"Disjuntor Geral DIN {tipo_ent} {dj_pad}", "Quantidade": 1, "Unidade": "un"})
+    
+    total_tomadas = max(6, math.ceil(area_ref * 0.35))
+    total_interruptores = max(3, math.ceil(area_ref * 0.12))
+    materiais.append({"Etapa": "Acabamento Elétrico", "Material": "Tomada Simples 10A 4x2", "Quantidade": total_tomadas, "Unidade": "un"})
+    materiais.append({"Etapa": "Acabamento Elétrico", "Material": "Interruptor Simples com Placa 4x2", "Quantidade": total_interruptores, "Unidade": "un"})
+    
+    if any(c["Cabo"] == "4.0 mm²" for c in st.session_state.lista_circuitos):
+        materiais.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 4.0 mm² (100m)", "Quantidade": 1, "Unidade": "rl"})
+    if any(c["Cabo"] == "6.0 mm²" for c in st.session_state.lista_circuitos):
+        materiais.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 6.0 mm² (100m)", "Quantidade": 1, "Unidade": "rl"})
+    st.session_state.lista_materiais_eletricos = materiais
 
-# Abas Principais
 tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quantitativo Elétrico", "📥 3. Fechamento & Relatório PDF"])
-
-# ABA 1: LEVANTAMENTO DA CONSTRUÇÃO CIVIL
 with tab_civil:
     st.write("### 📐 Parâmetros de Entrada da Construção Civil")
     c_civ1, c_civ2, c_civ3 = st.columns(3)
@@ -81,107 +84,78 @@ with tab_civil:
         pe_direito = st.number_input("Altura do Pé-Direito (m):", min_value=1.5, value=2.8, step=0.1, key="ni_pedireito_civil")
         qtd_sapatas = st.number_input("Quantidade de Sapatas Isoladas:", min_value=0, value=12, step=1, key="ni_sapatas_civil")
     with c_civ3:
-        tipo_tijolo = st.selectbox("Tipo de Alvenaria:", ["Tijolo Baiano (8 furos - 9x19x19)", "Bloco de Concreto (14x19x39)"], key="sb_tijolo_civil")
+        tipo_tijolo = st.selectbox("Tipo de Alvenaria:", ["Tijolo Cerâmico Baiano", "Bloco de Concreto"], key="sb_tijolo_civil")
         espessura_contrapiso = st.number_input("Espessura do Contrapiso (cm):", min_value=3.0, value=5.0, step=0.5, key="ni_contrapiso_civil")
 
     if st.button("📊 Processar Engenharia Civil", key="btn_calcular_civil"):
         st.session_state.lista_materiais_civil = []
-        vol_concreto_sapatas = qtd_sapatas * 0.4
-        peso_aco_sapatas = qtd_sapatas * 25.0
-        st.session_state.lista_materiais_civil.append({"Etapa": "Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": round(vol_concreto_sapatas, 2), "Unidade": "m³"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Infraestrutura", "Material": "Aço CA-50 Cortado e Dobrado", "Quantidade": round(peso_aco_sapatas, 1), "Unidade": "kg"})
-        vol_concreto_piso = area_obra * (espessura_contrapiso / 100.0)
-        st.session_state.lista_materiais_civil.append({"Etapa": "Estrutura e Piso", "Material": "Concreto para Contrapiso Fck=20MPa", "Quantidade": round(vol_concreto_piso, 2), "Unidade": "m³"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Estrutura e Piso", "Material": "Tela Eletrosoldada Q-92 para Piso", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"})
-        area_parede_total = perimetro_paredes * pe_direito
-        consumo_tijolo = 25 if "Tijolo" in tipo_tijolo else 12.5
-        tijolo_nome = "Tijolo Cerâmico Baiano 8 Furos" if "Tijolo" in tipo_tijolo else "Bloco de Concreto Estrutural"
-        total_tijolos = math.ceil(area_parede_total * consumo_tijolo * 1.1)
-        st.session_state.lista_materiais_civil.append({"Etapa": "Alvenaria", "Material": tijolo_nome, "Quantidade": total_tijolos, "Unidade": "un"})
+        vol_sapatas = qtd_sapatas * 0.4
+        peso_aco = qtd_sapatas * 25.0
+        st.session_state.lista_materiais_civil.append({"Etapa": "Infraestrutura", "Material": "Concreto Fck=30MPa", "Quantidade": round(vol_sapatas, 2), "Unidade": "m³"})
+        st.session_state.lista_materiais_civil.append({"Etapa": "Infraestrutura", "Material": "Aço CA-50", "Quantidade": round(peso_aco, 1), "Unidade": "kg"})
+        vol_piso = area_obra * (espessura_contrapiso / 100.0)
+        st.session_state.lista_materiais_civil.append({"Etapa": "Estrutura e Piso", "Material": "Concreto Fck=20MPa", "Quantidade": round(vol_piso, 2), "Unidade": "m³"})
+        st.session_state.lista_materiais_civil.append({"Etapa": "Estrutura e Piso", "Material": "Tela Soldada Q-92", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"})
+        area_parede = perimetro_paredes * pe_direito
+        total_tijolos = math.ceil(area_parede * (25 if "Tijolo" in tipo_tijolo else 12.5) * 1.1)
+        st.session_state.lista_materiais_civil.append({"Etapa": "Alvenaria", "Material": "Tijolos/Blocos", "Quantidade": total_tijolos, "Unidade": "un"})
         st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Piso Porcelanato Retificado", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Argamassa Colante AC-III (20kg)", "Quantidade": math.ceil(area_obra * 1.15 * 5.0 / 20.0), "Unidade": "sc"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Tinta Látex Acrílica (18L)", "Quantidade": math.ceil((area_parede_total * 2) * 0.25 / 18.0), "Unidade": "lt"})
-        st.success("Levantamento civil gerado e separado!")
+        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Argamassa AC-III (20kg)", "Quantidade": math.ceil(area_obra * 1.15 * 5.0 / 20.0), "Unidade": "sc"})
+        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Tinta Látex Acrílica (18L)", "Quantidade": math.ceil((area_parede * 2) * 0.25 / 18.0), "Unidade": "lt"})
+        st.success("Levantamento civil gerado!")
         st.rerun()
 
     if st.session_state.lista_materiais_civil:
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
-# ----------------------------------------------------
-# ABA 2: LEVANTAMENTO DAS INSTALAÇÕES ELÉTRICAS
-# ----------------------------------------------------
 with tab_eletrica:
-    col_c1, col_c2 = st.columns(2)
-    with col_c1:
-        concessionaria_sel = st.selectbox("🔌 Selecione a Concessionária de Energia:", list(CONCESSIONARIAS.keys()), key="sb_concessionaria_el")
+    col_el1, col_el2 = st.columns(2)
+    with col_el1:
+        concessionaria_sel = st.selectbox("🔌 Concessionária:", list(CONCESSIONARIAS.keys()), key="sb_concessionaria_el")
         dados_c = CONCESSIONARIAS[concessionaria_sel]
-    with col_c2:
-        st.write("### 🏡 Opção 1: Lançar Casa Completa")
-        if st.button("Gerar Kit Casa Completa Automaticamente", key="btn_kit_casa_el"):
+    with col_el2:
+        st.write("### 🏡 Opção 1: Kit Casa Completa")
+        if st.button("Gerar Kit Casa Completa", key="btn_kit_casa_el"):
             st.session_state.lista_circuitos = [
-                {"Circuito": "Circuito 1", "Descrição": "Torneira Elétrica (Cozinha)", "Carga (W)": 5000, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "32 A", "Tipo": "Bifásico"},
-                {"Circuito": "Circuito 2", "Descrição": "Iluminação Cozinha e Copa", "Carga (W)": 800, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"},
-                {"Circuito": "Circuito 3", "Descrição": "Iluminação Sala e Quartos", "Carga (W)": 1200, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"},
-                {"Circuito": "Circuito 4", "Descrição": "Tomadas Cozinha e Área Serviço", "Carga (W)": 4400, "Tensão (V)": dados_c["fase"], "Cabo": "4.0 mm²", "Disjuntor": "25 A", "Tipo": "Monofásico"},
-                {"Circuito": "Circuito 5", "Descrição": "Tomadas de Uso Geral (TUGs)", "Carga (W)": 2200, "Tensão (V)": dados_c["fase"], "Cabo": "2.5 mm²", "Disjuntor": "20 A", "Tipo": "Monofásico"},
-                {"Circuito": "Circuito 6", "Descrição": "Chuveiro Elétrico", "Carga (W)": 7500, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "40 A", "Tipo": "Bifásico"},
-                {"Circuito": "Circuito 7", "Descrição": "Ar Condicionado", "Carga (W)": 2000, "Tensão (V)": dados_c["linha"], "Cabo": "2.5 mm²", "Disjuntor": "16 A", "Tipo": "Bifásico"}
+                {"Circuito": "C1", "Descrição": "Torneira Elétrica", "Carga (W)": 5000, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "32 A", "Tipo": "Bifásico"},
+                {"Circuito": "C2", "Descrição": "Iluminação Geral", "Carga (W)": 1500, "Tensão (V)": dados_c["fase"], "Cabo": "1.5 mm²", "Disjuntor": "10 A", "Tipo": "Monofásico"},
+                {"Circuito": "C3", "Descrição": "Tomadas Gerais (TUGs)", "Carga (W)": 3500, "Tensão (V)": dados_c["fase"], "Cabo": "2.5 mm²", "Disjuntor": "20 A", "Tipo": "Monofásico"},
+                {"Circuito": "C4", "Descrição": "Chuveiro Elétrico", "Carga (W)": 7500, "Tensão (V)": dados_c["linha"], "Cabo": "6.0 mm²", "Disjuntor": "40 A", "Tipo": "Bifásico"}
             ]
-            recalcular_materiais_brutos_eletricos(area_obra)
-            st.success("Kit elétrico gerado!")
             st.rerun()
 
     st.markdown("---")
-    st.write("### 🛠️ Opção 2: Lançar Um Circuito por Vez")
+    st.write("### 🛠️ Opção 2: Lançar Circuito Individual")
     col_a1, col_a2, col_a3, col_a4 = st.columns(4)
     with col_a1:
-        txt_desc = st.text_input("Descrição do Circuito:", placeholder="Ex: Chuveiro Elétrico", key="ti_desc_manual")
+        txt_desc = st.text_input("Descrição:", placeholder="Ex: Chuveiro", key="ti_desc_manual")
     with col_a2:
-        num_carga = st.number_input("Carga do Circuito (W):", min_value=100, value=2200, step=100, key="ni_carga_manual")
+        num_carga = st.number_input("Carga (W):", min_value=100, value=2200, step=100, key="ni_carga_manual")
     with col_a3:
-        sel_tipo = st.selectbox("Tipo de Ligação:", ["Monofásico", "Bifásico"], key="sb_tipo_manual")
+        sel_tipo = st.selectbox("Ligação:", ["Monofásico", "Bifásico"], key="sb_tipo_manual")
     with col_a4:
         st.write(" ")
-        if st.button("➕ Inserir Este Circuito", key="btn_add_manual"):
+        if st.button("➕ Inserir Circuito", key="btn_add_manual"):
             if txt_desc:
                 c_num = len(st.session_state.lista_circuitos) + 1
                 v_tensao = dados_c["linha"] if sel_tipo == "Bifásico" else dados_c["fase"]
-                
-                # Inteligência NBR 5410 automatizada
-                if num_carga >= 5000:
-                    cabo_calc, dj_calc = "6.0 mm²", "32 A" if num_carga < 7000 else "40 A"
-                elif num_carga >= 3500:
-                    cabo_calc, dj_calc = "4.0 mm²", "25 A"
-                else:
-                    cabo_calc, dj_calc = "2.5 mm²", "20 A"
-                if "Iluminação" in txt_desc or num_carga <= 1000:
-                    cabo_calc, dj_calc = "1.5 mm²", "10 A"
-
-                st.session_state.lista_circuitos.append({
-                    "Circuito": f"Circuito {c_num}", "Descrição": txt_desc, "Carga (W)": num_carga,
-                    "Tensão (V)": v_tensao, "Cabo": cabo_calc, "Disjuntor": dj_calc, "Tipo": sel_tipo
-                })
-                recalcular_materiais_brutos_eletricos(area_obra)
-                st.success(f"Circuito {c_num} lançado com sucesso!")
+                cabo_calc, dj_calc = ("6.0 mm²", "40 A") if num_carga >= 6000 else (("4.0 mm²", "25 A") if num_carga >= 3500 else ("2.5 mm²", "20 A"))
+                if "Iluminação" in txt_desc or num_carga <= 1000: cabo_calc, dj_calc = "1.5 mm²", "10 A"
+                st.session_state.lista_circuitos.append({"Circuito": f"C{c_num}", "Descrição": txt_desc, "Carga (W)": num_carga, "Tensão (V)": v_tensao, "Cabo": cabo_calc, "Disjuntor": dj_calc, "Tipo": sel_tipo})
+                st.success("Circuito lançado!")
                 st.rerun()
 
-    if st.session_state.lista_circuitos:
-        st.write("#### 📋 Relação de Circuitos Ativos (QDC)")
-        st.dataframe(pd.DataFrame(st.session_state.lista_circuitos), use_container_width=True)
-        st.write("#### 📊 Lista Isolada de Materiais Elétricos Brutos Gerados")
-        st.dataframe(pd.DataFrame(st.session_state.lista_materiais_eletricos), use_container_width=True)
-
-# --- CÁLCULO GERAL DO PADRÃO DE ATENDIMENTO ---
 pot_total = sum(c["Carga (W)"] for c in st.session_state.lista_circuitos)
-dados_c_global = CONCESSIONARIAS[concessionaria_sel]
-if pot_total <= dados_c_global["limite_mono"]:
-    tipo_entrada, cabo_padrao, dj_padrao = "Monofásico", "10.0 mm²", "40 A"
-elif pot_total <= dados_c_global["limite_bi"]:
-    tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
-else:
-    tipo_entrada, cabo_padrao, dj_padrao = "Trifásico", "25.0 mm²", "80 A"
+tipo_entrada = "Monofásico" if pot_total <= dados_c["limite_mono"] else ("Bifásico" if pot_total <= dados_c["limite_bi"] else "Trifásico")
+cabo_padrao = "10.0 mm²" if tipo_entrada == "Monofásico" else ("16.0 mm²" if tipo_entrada == "Bifásico" else "25.0 mm²")
+dj_padrao = "40 A" if tipo_entrada == "Monofásico" else ("63 A" if tipo_entrada == "Bifásico" else "80 A")
+recalcular_materials = recalcular_materiais_brutos_eletricos(area_obra, tipo_entrada, dj_padrao)
 
-# --- ALGORITMOS DOS MOTORES GRÁFICOS ---
-def gerar_desenho_unifilar():
+if st.session_state.lista_circuitos:
+    st.write("#### 📋 Circuitos e Materiais Elétricos")
+    st.dataframe(pd.DataFrame(st.session_state.lista_circuitos), use_container_width=True)
+    st.dataframe(pd.DataFrame(st.session_state.lista_materiais_eletricos), use_container_width=True)
+
+def generar_desenho_unifilar():
     n_circ = len(st.session_state.lista_circuitos)
     altura_d = max(160, (n_circ * 35) + 60)
     d = Drawing(540, altura_d)
@@ -204,7 +178,7 @@ def gerar_desenho_unifilar():
         d.add(String(270, y - 3, f"{c['Circuito']}: {c['Descrição']} ({c['Carga (W)']}W)", fontSize=8, fontName='Helvetica'))
     return d
 
-def gerar_desenho_multifilar():
+def generar_desenho_multifilar():
     n_circ = len(st.session_state.lista_circuitos)
     altura_d = max(200, (n_circ * 45) + 80)
     d = Drawing(540, altura_d)
@@ -240,110 +214,58 @@ def gerar_desenho_multifilar():
                 d.add(Line(290, y - 6, x_neutro, y - 6, strokeColor=colors.blue, strokeWidth=0.8))
                 d.add(Circle(x_neutro, y - 6, 2, fillColor=colors.blue, strokeColor=colors.blue))
     return d
-# --- ENGINE CONSOLIDADA DA DOCUMENTAÇÃO EM PDF ---
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     estilos = getSampleStyleSheet()
+    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=15, textColor=colors.HexColor('#1E3A8A'), spaceAfter=8)
+    estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=11, textColor=colors.HexColor('#0D9488'), spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
+    estilo_corpo = ParagraphStyle('C', parent=estilos['BodyText'], fontSize=8.5, spaceAfter=3)
+    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['BodyText'], fontSize=9, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold')
+    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=8)
     
-    estilo_titulo = ParagraphStyle('Titulo', parent=estilos['Heading1'], fontSize=15, textColor=colors.HexColor('#1E3A8A'), spaceAfter=8)
-    estilo_sub = ParagraphStyle('Sub', parent=estilos['Heading2'], fontSize=11, textColor=colors.HexColor('#0D9488'), spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
-    estilo_corpo = ParagraphStyle('Corpo', parent=estilos['BodyText'], fontSize=8.5, spaceAfter=3)
-    estilo_aviso_tit = ParagraphStyle('AvisoTit', parent=estilos['BodyText'], fontSize=9, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=4)
-    estilo_aviso_corpo = ParagraphStyle('AvisoCorpo', parent=estilos['BodyText'], fontSize=8, textColor=colors.HexColor('#1E293B'), spaceAfter=3)
-
-    elementos = []
+    elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO</b>", estilo_titulo), Spacer(1, 6)]
     
-    elementos.append(Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INDEPENDENTE DE QUANTITATIVOS</b>", estilo_titulo))
-    elementos.append(Paragraph("Demonstrativo Separado por Categorias de Compra de Insumos", estilo_corpo))
-    elementos.append(Spacer(1, 6))
-    
-    # SEÇÃO 1: APENAS CONSTRUÇÃO CIVIL NO PDF
     if st.session_state.lista_materiais_civil:
-        elementos.append(Paragraph("1. Lote de Materiais da Construção Civil (Depósito Civil)", estilo_sub))
-        dados_tabela_civil = [["Etapa Civil", "Insumo / Material Otimizado", "Quantidade", "Unidade"]]
-        for mat in st.session_state.lista_materiais_civil:
-            dados_tabela_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
+        elementos.append(Paragraph("1. Lote de Materiais da Construção Civil", estilo_sub))
+        dados = [["Etapa", "Material Otimizado", "Qtd", "Un"]]
+        for m in st.session_state.lista_materiais_civil: dados.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
+        t = Table(dados, colWidths=[110, 290, 80, 60])
+        t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('FONTSIZE', (0,0), (-1,-1), 8)]))
+        elementos.append(t)
         
-        t_civ = Table(dados_tabela_civil, colWidths=[120, 260, 80, 80])
-        t_civ.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('ALIGN', (1,1), (1,-1), 'LEFT'),
-            ('PADDING', (0,0), (-1,-1), 4),
-            ('FONTSIZE', (0,0), (-1,-1), 8)
-        ]))
-        elementos.append(t_civ)
-        elementos.append(Spacer(1, 10))
-        
-    # SEÇÃO 2: APENAS INSTALAÇÃO ELÉTRICA NO PDF
     if st.session_state.lista_materiais_eletricos:
-        elementos.append(Paragraph("2. Lote de Materiais e Componentes Elétricos (Distribuidora)", estilo_sub))
-        dados_tabela_el_mat = [["Etapa Elétrica", "Componente / Insumo Hidro-Elétrico", "Quantidade", "Unidade"]]
-        for emat in st.session_state.lista_materiais_eletricos:
-            dados_tabela_el_mat.append([emat["Etapa"], emat["Material"], str(emat["Quantidade"]), emat["Unidade"]])
-            
-        t_el_mat = Table(dados_tabela_el_mat, colWidths=[120, 260, 80, 80])
-        t_el_mat.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('ALIGN', (1,1), (1,-1), 'LEFT'),
-            ('PADDING', (0,0), (-1,-1), 4),
-            ('FONTSIZE', (0,0), (-1,-1), 8)
-        ]))
-        elementos.append(t_el_mat)
-        elementos.append(Spacer(1, 10))
+        elementos.append(Paragraph("2. Lote de Materiais e Componentes Elétricos", estilo_sub))
+        dados_el = [["Etapa", "Componente Detalhado", "Qtd", "Un"]]
+        for m in st.session_state.lista_materiais_eletricos: dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
+        t_el = Table(dados_el, colWidths=[110, 290, 80, 60])
+        t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8)]))
+        elementos.append(t_el)
 
-    # SEÇÃO 3: CIRCUITOS E PRANCHAS DO QDC
     if st.session_state.lista_circuitos:
         elementos.append(Paragraph("3. Esquemas Técnicos e Diagramação Elétrica (QDC)", estilo_sub))
         elementos.append(gerar_desenho_unifilar())
         elementos.append(Spacer(1, 10))
         elementos.append(gerar_desenho_multifilar())
-        elementos.append(Spacer(1, 10))
 
-    # Painel NBR 5410 & NR-10
     elementos.append(Paragraph("4. Painel de Segurança e Advertências Obrigatórias", estilo_sub))
-    conteudo_aviso = [
-        Paragraph("<b>⚠️ RISCO DE CHOQUE ELÉTRICO - PERIGO DE MORTE</b>", estilo_aviso_tit),
-        Paragraph("• <b>Item 6.1.5.1 (NBR 5410):</b> Modificações sem profissional qualificado geram risco de curto e incêndio.", estilo_aviso_corpo),
-        Paragraph("• <b>Proteção DR:</b> Teste mensalmente o botão (T) do IDR geral para garantir a proteção humana.", estilo_aviso_corpo),
-        Paragraph("• <b>Item 4.5.3 (NR-10):</b> Intervenções por pessoal não autorizado são expressamente proibidas.", estilo_aviso_corpo)
-    ]
-    t_aviso = Table([[conteudo_aviso]], colWidths=[540])
-    t_aviso.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')),
-        ('BORDER', (0,0), (-1,-1), 1.5, colors.HexColor('#EF4444')),
-        ('PADDING', (0,0), (-1,-1), 8)
-    ]))
-    elementos.append(t_aviso)
+    caviso = [Paragraph("<b>⚠️ RISCO DE CHOQUE ELÉTRICO</b>", estilo_aviso_tit), Paragraph("• <b>NBR 5410:</b> Modificações sem profissional geram risco.", estilo_aviso_corpo), Paragraph("• <b>NR-10:</b> Intervenções por pessoal não autorizado são proibidas.", estilo_aviso_corpo)]
+    t_av = Table([[caviso]], colWidths=[540])
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#EF4444')), ('PADDING', (0,0), (-1,-1), 8)]))
+    elementos.append(t_av)
     
     doc.build(elementos)
     buffer.seek(0)
     return buffer
 
-# --- PAINEL DE CONTROLE FINAL NA TERCEIRA ABA ---
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão de Documentos Separados")
     if st.session_state.lista_materiais_civil or st.session_state.lista_materiais_eletricos:
-        arquivo_pdf = gerar_pdf_completo_obra()
-        st.download_button(
-            label="📥 Baixar Prancha Separada Civil e Elétrica (PDF Comercial)",
-            data=arquivo_pdf,
-            file_name="quantitativos_separados_fenix.pdf",
-            mime="application/pdf",
-            key="btn_download_pdf_total_real"
-        )
+        st.download_button(label="📥 Baixar PDF Comercial Consolidado", data=gerar_pdf_completo_obra(), file_name="quantitativos_completos_fenix.pdf", mime="application/pdf", key="btn_pdf_real")
         if st.button("🗑️ Resetar Todo o Sistema", key="btn_clear_total"):
             st.session_state.lista_circuitos = []
             st.session_state.lista_materiais_civil = []
             st.session_state.lista_materiais_eletricos = []
             st.rerun()
     else:
-        st.info("Efetue os levantamentos na Aba 1 (Civil) e Aba 2 (Elétrica) para liberar o PDF separado.")
+        st.info("Efetue os levantamentos nas abas para liberar o PDF.")
