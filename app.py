@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import math
 from io import BytesIO
-from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.pagesizes import letter, landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -12,7 +12,7 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP de Engenharia: Tabela de Cargas NBR 5410 & Homologação de Padrão")
+st.subheader("ERP de Engenharia: Prancha com Quadro de Cargas Modelo e Esquema Multifilar")
 st.markdown("---")
 
 AVISO_NBR = (
@@ -39,7 +39,6 @@ if "lista_materiais_civil" not in st.session_state:
     st.session_state.lista_materiais_civil = []
 if "lista_materiais_eletricos" not in st.session_state:
     st.session_state.lista_materiais_eletricos = []
-
 def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
     if not st.session_state.lista_circuitos:
         st.session_state.lista_materiais_eletricos = []
@@ -74,10 +73,11 @@ def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
         materiais.append({"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível 6.0 mm² (100m)", "Quantidade": 1, "Unidade": "rl"})
     st.session_state.lista_materiais_eletricos = materiais
 
+tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "📥 3. Fechamento & Relatório PDF"])
 def gerar_desenho_unifilar(cabo_pad, dj_pad):
     n_circ = len(st.session_state.lista_circuitos)
     altura_d = max(160, (n_circ * 35) + 60)
-    d = Drawing(720, altura_d)
+    d = Drawing(740, altura_d)
     d.add(Line(20, altura_d - 40, 100, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
     d.add(String(20, altura_d - 30, f"Entrada: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
     d.add(Line(100, altura_d - 40, 115, altura_d - 50, strokeColor=colors.black, strokeWidth=2))
@@ -94,8 +94,43 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad):
         d.add(String(225, y + 6, c["Cabo"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
         d.add(String(270, y - 3, f"C{c['Circuito']}: {c['Descrição']} - {c['Fase']} ({c['Carga']}W)", fontSize=8, fontName='Helvetica'))
     return d
-tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "📥 3. Fechamento & Relatório PDF"])
 
+def gerar_desenho_multifilar():
+    n_circ = len(st.session_state.lista_circuitos)
+    altura_d = max(200, (n_circ * 45) + 80)
+    d = Drawing(740, altura_d)
+    x_fase1, x_fase2, x_neutro, x_terra = 220, 260, 300, 340
+    
+    d.add(String(x_fase1, altura_d - 20, "Fase R", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.red))
+    d.add(String(x_fase2, altura_d - 20, "Fase S", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
+    d.add(String(x_neutro, altura_d - 20, "Neutro (N)", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.blue))
+    d.add(String(x_terra, altura_d - 20, "Terra (T)", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
+    
+    d.add(Line(x_fase1, altura_d - 25, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.5))
+    d.add(Line(x_fase2, altura_d - 25, x_fase2, 20, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
+    d.add(Line(x_neutro, altura_d - 25, x_neutro, 20, strokeColor=colors.blue, strokeWidth=1.5))
+    d.add(Line(x_terra, altura_d - 25, x_terra, 20, strokeColor=colors.HexColor('#16A34A'), strokeWidth=1.2))
+    
+    for idx, c in enumerate(st.session_state.lista_circuitos):
+        y = (altura_d - 65) - (idx * 45)
+        if idx % 2 == 0:
+            d.add(Rect(30, y - 12, 120, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
+            d.add(String(35, y + 2, f"Circuito {c['Circuito']}", fontSize=8, fontName='Helvetica-Bold'))
+            d.add(String(35, y - 8, f"{c['Curva']}{c['Disjuntor']} - {c['Cabo']}", fontSize=7))
+            d.add(Line(150, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
+            d.add(Circle(x_fase1, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
+            if "S" in c["Fase"]:
+                d.add(Line(150, y - 4, x_fase2, y - 4, strokeColor=colors.black, strokeWidth=1))
+                d.add(Circle(x_fase2, y - 4, 2.5, fillColor=colors.black, strokeColor=colors.black))
+        else:
+            d.add(Rect(420, y - 12, 120, 28, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
+            d.add(String(425, y + 2, f"Circuito {c['Circuito']}", fontSize=8, fontName='Helvetica-Bold'))
+            d.add(String(425, y - 8, f"{c['Curva']}{c['Disjuntor']} - {c['Cabo']}", fontSize=7))
+            d.add(Line(420, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
+            d.add(Circle(x_neutro, y, 2, fillColor=colors.blue, strokeColor=colors.blue))
+            d.add(Line(420, y - 4, x_terra, y - 4, strokeColor=colors.HexColor('#16A34A'), strokeWidth=0.8))
+            d.add(Circle(x_terra, y - 4, 2, fillColor=colors.HexColor('#16A34A'), strokeColor=colors.HexColor('#16A34A')))
+    return d
 with tab_civil:
     st.write("### 📐 Parâmetros de Entrada da Construção Civil")
     c_civ1, c_civ2, c_civ3 = st.columns(3)
@@ -129,7 +164,6 @@ with tab_civil:
 
     if st.session_state.lista_materiais_civil:
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
-
 with tab_eletrica:
     st.write("### 🎛️ Configuração do Quadro de Distribuição de Cargas (QDC)")
     col_el1, col_el2 = st.columns(2)
@@ -140,18 +174,18 @@ with tab_eletrica:
         st.write("### 🏡 Opção 1: Carregar Planta Completa conforme Anexo")
         if st.button("Gerar Quadro de Cargas Completo", key="btn_kit_casa_el"):
             st.session_state.lista_circuitos = [
-                {"Circuito": "1", "Descrição": "ILUMINAÇÃO - Quartos e Área Externa", "Carga": 1180, "VA": 1180, "Ib (A)": 9.29, "Disjuntor": "16A", "Curva": "B", "Cabo": "1.5 mm²", "Fase": "R", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "2", "Descrição": "ILUMINAÇÃO - Sala, Cozinha e Banheiro", "Carga": 640, "VA": 640, "Ib (A)": 5.04, "Disjuntor": "16A", "Curva": "B", "Cabo": "1.5 mm²", "Fase": "S", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "3", "Descrição": "TUG - Dormitórios", "Carga": 480, "VA": 600, "Ib (A)": 4.72, "Disjuntor": "20A", "Curva": "C", "Cabo": "2.5 mm²", "Fase": "R", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "4", "Descrição": "TUG - Corredor e Área Externa", "Carga": 320, "VA": 400, "Ib (A)": 3.15, "Disjuntor": "20A", "Curva": "C", "Cabo": "2.5 mm²", "Fase": "S", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "5", "Descrição": "TUG - Sala e Banheiro", "Carga": 1040, "VA": 1300, "Ib (A)": 10.24, "Disjuntor": "20A", "Curva": "C", "Cabo": "2.5 mm²", "Fase": "R", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "6", "Descrição": "TUG - Cozinha e Área de Serviço", "Carga": 1760, "VA": 2200, "Ib (A)": 17.32, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "7", "Descrição": "TUE - Micro-Ondas", "Carga": 2450, "VA": 2450, "Ib (A)": 19.29, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "R", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "8", "Descrição": "TUE - Fritadeira Elétrica", "Carga": 2450, "VA": 2450, "Ib (A)": 19.29, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "9", "Descrição": "TUE - Secador de Cabelo 1", "Carga": 2500, "VA": 2500, "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "R", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "10", "Descrição": "TUE - Secador de Cabelo 2", "Carga": 2500, "VA": 2500, "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "11", "Descrição": "TUE - Chuveiro Monofásico", "Carga": 7800, "VA": 7800, "Ib (A)": 61.42, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "R", "Tensão": 127, "Tipo": "Monofásico"},
-                {"Circuito": "12", "Descrição": "TUE - Chuveiro Bifásico", "Carga": 7800, "VA": 7800, "Ib (A)": 35.45, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "RS", "Tensão": 220, "Tipo": "Bifásico"}
+                {"Circuito": "1", "Descrição": "ILUMINAÇÃO - Quarto 1, Corredor, Quarto 2, Área Externa", "Carga": 1180, "VA": 1180, "Ilum": "1180", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "0", "Demanda": "60,00%", "FP": "100,00%", "Ib (A)": 9.29, "Disjuntor": "16A", "Curva": "B", "Cabo": "1.5 mm²", "Fase": "R", "Tensão": 127, "R_val": "1180", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "2", "Descrição": "ILUMINAÇÃO - Sala, Cozinha, Banheiro, Área de Serviço", "Carga": 640, "VA": 640, "Ilum": "640", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "0", "Demanda": "60,00%", "FP": "100,00%", "Ib (A)": 5.04, "Disjuntor": "16A", "Curva": "B", "Cabo": "1.5 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "640", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "3", "Descrição": "TUG - Quarto 1, Quarto 2", "Carga": 480, "VA": 600, "Ilum": "0", "Tug100": "6", "Tug600": "0", "Tug1000": "0", "PotEsp": "0", "Demanda": "60,00%", "FP": "80,00%", "Ib (A)": 4.72, "Disjuntor": "20A", "Curva": "C", "Cabo": "2.5 mm²", "Fase": "R", "Tensão": 127, "R_val": "600", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "4", "Descrição": "TUG - Corredor, Área Externa", "Carga": 320, "VA": 400, "Ilum": "0", "Tug100": "4", "Tug600": "0", "Tug1000": "0", "PotEsp": "0", "Demanda": "60,00%", "FP": "80,00%", "Ib (A)": 3.15, "Disjuntor": "20A", "Curva": "C", "Cabo": "2.5 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "400", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "5", "Descrição": "TUG - Sala, Banheiro", "Carga": 1040, "VA": 1300, "Ilum": "0", "Tug100": "3", "Tug600": "0", "Tug1000": "1", "PotEsp": "0", "Demanda": "60,00%", "FP": "80,00%", "Ib (A)": 10.24, "Disjuntor": "20A", "Curva": "C", "Cabo": "2.5 mm²", "Fase": "R", "Tensão": 127, "R_val": "1300", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "6", "Descrição": "TUG - Cozinha, Área de Serviço", "Carga": 1760, "VA": 2200, "Ilum": "0", "Tug100": "4", "Tug600": "3", "Tug1000": "0", "PotEsp": "0", "Demanda": "60,00%", "FP": "80,00%", "Ib (A)": 17.32, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2200", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "7", "Descrição": "TUE - Micro-Ondas", "Carga": 2450, "VA": 2450, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2450", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.29, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "2450", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "8", "Descrição": "TUE - Fritadeira", "Carga": 2450, "VA": 2450, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2450", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.29, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2450", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "9", "Descrição": "TUE - Secador de Cabelo 1", "Carga": 2500, "VA": 2500, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2500", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "2500", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "10", "Descrição": "TUE - Secador de Cabelo 2", "Carga": 2500, "VA": 2500, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2500", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2500", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "11", "Descrição": "TUE - Chuveiro 1", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 61.42, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "7800", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "12", "Descrição": "TUE - Chuveiro 2", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 35.45, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "RS", "Tensão": 220, "R_val": "3900", "S_val": "3900", "T_val": "0", "Tipo": "Bifásico"}
             ]
             st.rerun()
 
@@ -175,16 +209,18 @@ with tab_eletrica:
                 cabo_c = "6.0 mm²" if num_carga >= 6000 else ("4.0 mm²" if num_carga >= 3500 else "2.5 mm²")
                 dj_c = "40A" if num_carga >= 6000 else ("32A" if num_carga >= 3500 else "20A")
                 t_tipo_c = "Bifásico" if v_tensao == 220 else "Monofásico"
+                r_f = str(num_carga) if fase_atrib == "R" else ("0" if fase_atrib == "S" else str(round(num_carga/2)))
+                s_f = str(num_carga) if fase_atrib == "S" else ("0" if fase_atrib == "R" else str(round(num_carga/2)))
                 if "Iluminação" in txt_desc: cabo_c, dj_c = "1.5 mm²", "16A"
                 st.session_state.lista_circuitos.append({
-                    "Circuito": c_num, "Descrição": txt_desc, "Carga": num_carga, "VA": num_carga, 
-                    "Ib (A)": ib_calc, "Disjuntor": dj_c, "Curva": "C", "Cabo": cabo_c, "Fase": fase_atrib, "Tensão": v_tensao, "Tipo": t_tipo_c
+                    "Circuito": c_num, "Descrição": txt_desc, "Carga": num_carga, "VA": num_carga, "Ilum": str(num_carga) if "ILUM" in txt_desc.upper() else "0",
+                    "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": str(num_carga) if "TUE" in txt_desc.upper() else "0", "Demanda": "80,00%", "FP": "100,00%",
+                    "Ib (A)": ib_calc, "Disjuntor": dj_c, "Curva": "C", "Cabo": cabo_c, "Fase": fase_atrib, "Tensão": v_tensao, "R_val": r_f, "S_val": s_f, "T_val": "0", "Tipo": t_tipo_c
                 })
                 st.success("Circuito adicionado!")
                 st.rerun()
-pot_total = sum(c["Carga"] for c in st.session_state.lista_circuitos)
+pot_total = sum(int(c["Carga"]) for c in st.session_state.lista_circuitos)
 dados_c_global = CONCESSIONARIAS[concessionaria_sel]
-
 if pot_total <= dados_c_global["limite_mono"]:
     tipo_entrada, cabo_padrao, dj_padrao = "Monofásico", "10.0 mm²", "40 A"
     detalhe_caixa = "Caixa Tipo 'E' ou Tipo 'A'"
@@ -204,93 +240,69 @@ if st.session_state.lista_circuitos:
 
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
     estilos = getSampleStyleSheet()
-    
-    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=14, textColor=colors.HexColor('#1E3A8A'), spaceAfter=8)
-    estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=11, textColor=colors.HexColor('#0D9488'), spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
-    estilo_corpo = ParagraphStyle('C', parent=estilos['BodyText'], fontSize=8.5, spaceAfter=3)
-    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['BodyText'], fontSize=9, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold')
-    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=8)
+    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=13, textColor=colors.HexColor('#1E3A8A'), spaceAfter=6)
+    estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=10, textColor=colors.HexColor('#0D9488'), spaceBefore=8, spaceAfter=4, fontName='Helvetica-Bold')
+    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['BodyText'], fontSize=8.5, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold')
+    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=7.5)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS E HOMOLOGAÇÃO</b>", estilo_titulo), Spacer(1, 6)]
-    
     elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Técnica da {concessionaria_sel}</b>", estilo_sub))
+    
     dados_padrao_pdf = [
         ["Parâmetro do Padrão", "Especificação Conforme Norma Técnica Vigente"],
-        ["Norma Técnica Base", dados_c_global["norma"]],
-        ["Tipo de Fornecimento", tipo_entrada],
-        ["Cabo do Ramal (Entrada)", cabo_padrao],
-        ["Disjuntor Geral da Caixa", dj_padrao],
-        ["Modelo de Caixa Sugerido", detalhe_caixa]
+        ["Norma Técnica Base", dados_c_global["norma"]], ["Tipo de Fornecimento", tipo_entrada],
+        ["Cabo do Ramal (Entrada)", cabo_padrao], ["Disjuntor Geral da Caixa", dj_padrao], ["Modelo de Caixa Sugerido", detalhe_caixa]
     ]
-    # LARGURA TRAVADA DA TABELA: 180 + 360 = 540
-    t_pad = Table(dados_padrao_pdf, colWidths=[180, 360])
-    t_pad.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
-    ]))
+    t_pad = Table(dados_padrao_pdf, colWidths=[200, 340])
+    t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)]))
     elementos.append(t_pad)
     elementos.append(Spacer(1, 10))
 
     if st.session_state.lista_circuitos:
-        elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Dimensionamento do QDC (NBR 5410)", estilo_sub))
-        cabecalhos_qdc = ["CIRC", "DESCRIÇÃO DO CIRCUITO", "POT (W)", "POT (VA)", "CORRENTE (A)", "DISJUNTOR", "CONDUTOR", "FASE", "TENSÃO (V)"]
-        dados_qdc_pdf = [cabecalhos_qdc]
+        elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Distribuição por Fase (Modelo do Anexo)", estilo_sub))
+        cabecalhos_modelo = ["CIRC", "DESCRIÇÃO DO CIRCUITO", "POT ILUM", "POT ESP", "POT (W)", "POT (VA)", "DEM (%)", "CORR (A)", "DISJ", "COND", "FASE", "TENSÃO", "FAS R", "FAS S"]
+        dados_qdc_pdf = [cabecalhos_modelo]
         for c in st.session_state.lista_circuitos:
-            dados_qdc_pdf.append([c["Circuito"], c["Descrição"], f"{c['Carga']}W", f"{c['VA']}VA", f"{c['Ib (A)']}A", f"{c['Disjuntor']} {c['Curva']}", c["Cabo"], c["Fase"], f"{c['Tensão']}V"])
-        dados_qdc_pdf.append(["TOTAL", f"Potência Instalada: {pot_total} W", "", "", "", "", "", "", ""])
+            dados_qdc_pdf.append([c["Circuito"], c["Descrição"], f"{c['Ilum']}VA", f"{c['PotEsp']}VA", f"{c['Carga']}W", f"{c['VA']}VA", c["Demanda"], f"{c['Ib (A)']}A", f"{c['Curva']}{c['Disjuntor']}", c["Cabo"], c["Fase"], f"{c['Tensão']}V", f"{c['R_val']}VA", f"{c['S_val']}VA"])
+        dados_qdc_pdf.append(["TOTAL", f"Potência Total Instalada: {pot_total} W", "", "", "", "", "", "", "", "", "", "", f"{sum(int(c['R_val']) for c in st.session_state.lista_circuitos)}VA", f"{sum(int(c['S_val']) for c in st.session_state.lista_circuitos)}VA"])
         
-        # LARGURA TRAVADA DA TABELA: 40 + 200 + 50 + 50 + 60 + 50 + 50 + 40 + 50 = 590
-        t_qdc = Table(dados_qdc_pdf, colWidths=[40, 200, 50, 50, 60, 50, 50, 40, 50])
-        t_qdc.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('ALIGN', (1,1), (1,-2), 'LEFT'), ('SPAN', (1,-1), (-1,-1)),
-            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
-        ]))
+        t_qdc = Table(dados_qdc_pdf, colWidths=[25, 185, 45, 45, 45, 45, 40, 45, 40, 45, 30, 40, 55, 55])
+        t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('ALIGN', (1,1), (1,-2), 'LEFT'), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 3), ('FONTSIZE', (0,0), (-1,-1), 7.5)]))
         elementos.append(t_qdc)
-        elementos.append(Spacer(1, 10))
+        elementos.append(Spacer(1, 8))
 
     if st.session_state.lista_materiais_civil:
         elementos.append(Paragraph("2. Lote de Materiais da Construção Civil", estilo_sub))
         dados_civil = [["Etapa Civil", "Material Otimizado", "Quantidade", "Unidade"]]
-        for mat in st.session_state.lista_materiais_civil:
-            dados_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
-        # LARGURA TRAVADA DA TABELA: 140 + 260 + 80 + 60 = 540
-        t_civ = Table(dados_civil, colWidths=[140, 260, 80, 60])
-        t_civ.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)
-        ]))
+        for mat in st.session_state.lista_materiais_civil: dados_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
+        t_civ = Table(dados_civil, colWidths=[130, 250, 90, 70])
+        t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)]))
         elementos.append(t_civ)
-        elementos.append(Spacer(1, 10))
+        elementos.append(Spacer(1, 8))
         
     if st.session_state.lista_materiais_eletricos:
-        elementos.append(Paragraph("3. Lote de Materiais e Componentes Elétricos", estilo_sub))
+        elementos.append(Paragraph("3. Lote de Materiais e Componentes Elétricos Brutos", estilo_sub))
         dados_el = [["Etapa Elétrica", "Componente Detalhado", "Quantidade", "Unidade"]]
-        for m in st.session_state.lista_materiais_eletricos:
-            dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
-        # LARGURA TRAVADA DA TABELA: 140 + 260 + 80 + 60 = 540
-        t_el = Table(dados_el, colWidths=[140, 260, 80, 60])
-        t_el.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8), ('PADDING', (0,0), (-1,-1), 4)
-        ]))
+        for m in st.session_state.lista_materiais_eletricos: dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
+        t_el = Table(dados_el, colWidths=[130, 250, 90, 70])
+        t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8), ('PADDING', (0,0), (-1,-1), 4)]))
         elementos.append(t_el)
-        elementos.append(Spacer(1, 10))
+        elementos.append(Spacer(1, 8))
 
     if st.session_state.lista_circuitos:
-        elementos.append(Paragraph("4. Esquema Técnico Unifilar do QDC", estilo_sub))
+        elementos.append(Paragraph("4. Desenho Técnico Unifilar do Quadro (QDC)", estilo_sub))
         elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao))
-        elementos.append(Spacer(1, 10))
+        elementos.append(Spacer(1, 8))
+        elementos.append(Paragraph("5. Desenho Técnico Multifilar e Conexão de Bornes por Fase", estilo_sub))
+        elementos.append(gerar_desenho_multifilar())
+        elementos.append(Spacer(1, 8))
 
-    elementos.append(Paragraph("5. Painel de Segurança e Advertências Obrigatórias", estilo_sub))
-    caviso = [Paragraph("<b>⚠️ RISCO DE CHOQUE ELÉTRICO</b>", estilo_aviso_tit), Paragraph("• <b>NBR 5410:</b> Modificações sem profissional geram risco.", estilo_aviso_corpo), Paragraph("• <b>NR-10:</b> Intervenções por pessoal não autorizado são proibidas.", estilo_aviso_corpo)]
-    # LARGURA TRAVADA DA TABELA: 540
+    elementos.append(Paragraph("6. Painel de Segurança e Advertências Obrigatórias (NBR 5410 & NR-10)", estilo_sub))
+    caviso = [Paragraph("<b>⚠️ OBSERVACÕES TÉCNICAS E DE SEGURANÇA</b>", estilo_aviso_tit), Paragraph("• <b>Mapeamento por Fase:</b> Cargas balanceadas entre os barramentos R e S para evitar sobreaquecimento do Neutro.", estilo_aviso_corpo), Paragraph("• <b>Proteção Humana:</b> Botão (T) do IDR geral deve ser testado mensalmente pelo usuário final.", estilo_aviso_corpo)]
     t_av = Table([[caviso]], colWidths=[540])
-    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#EF4444')), ('PADDING', (0,0), (-1,-1), 8)]))
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#EF4444')), ('PADDING', (0,0), (-1,-1), 6)]))
     elementos.append(t_av)
     
     doc.build(elementos)
@@ -298,10 +310,10 @@ def gerar_pdf_completo_obra():
     return buffer
 
 with tab_pdf:
-    st.write("### 🖨️ Central de Emissão de Documentos Separados")
+    st.write("### 🖨 Imprimir Documento Integrado")
     if st.session_state.lista_materiais_civil or st.session_state.lista_materiais_eletricos:
-        st.download_button(label="📥 Baixar PDF Comercial Consolidado (Formato QDC)", data=gerar_pdf_completo_obra(), file_name="quantitativos_completos_fenix.pdf", mime="application/pdf", key="btn_pdf_real")
-        if st.button("🗑️ Resetar Todo o Sistema", key="btn_clear_total"):
+        st.download_button(label="📥 Baixar Prancha Técnica com Quadro de Cargas & Multifilar (PDF)", data=gerar_pdf_completo_obra(), file_name="quadro_de_cargas_fenix.pdf", mime="application/pdf", key="btn_pdf_real")
+        if st.button("🗑 Resetar Todo O Sistema", key="btn_clear_total"):
             st.session_state.lista_circuitos = []
             st.session_state.lista_materiais_civil = []
             st.session_state.lista_materiais_eletricos = []
