@@ -15,6 +15,13 @@ st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("Gerador Autônomo de Diagramas Unifilares e Multifilares Dinâmicos")
 st.markdown("---")
 
+# Definição Global do Aviso Obrigatório NBR 5410 (Evita o NameError)
+AVISO_NBR = (
+    "ADVERTÊNCIA: ADICIONAR OU MODIFICAR COMPONENTES DOS CIRCUITOS ELÉTRICOS PODE GERAR RISCO DE SOBRECARGA OU "
+    "CHOQUE SE NÃO EXECUTADO POR PROFISSIONAL QUALIFICADO. MANTENHA AS PORTAS DO QUADRO SEMPRE FECHADAS. "
+    "VERIFIQUE O FUNCIONAMENTO DO DISPOSITIVO DR MENSALMENTE APERTANDO O BOTÃO DE TESTE (T)."
+)
+
 # Banco de dados de concessionárias brasileiras
 CONCESSIONARIAS = {
     "CEMIG (Minas Gerais)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000},
@@ -142,6 +149,7 @@ def gerar_desenho_multifilar():
     for idx, c in enumerate(st.session_state.lista_circuitos):
         y = (altura_d - 65) - (idx * 45)
         
+        # Correção aqui: removido o y.toFixed defeituoso que causava erro visual
         if idx % 2 == 0:
             d.add(Rect(20, y - 12, 90, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
             d.add(String(25, y + 2, c["Circuito"], fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
@@ -190,7 +198,7 @@ def gerar_pdf_etiqueta_qdc():
     for c in st.session_state.lista_circuitos:
         dados_tabela.append([c["Circuito"], c["Descrição"], f"{c['Carga (W)']}W", f"{c['Tensão (V)']}V", c["Cabo"], c["Disjuntor"]])
     
-    t = Table(dados_tabela, colWidths=[60, 200, 70, 70, 70, 70])
+    t = Table(dados_tabela, colWidths=[50, 230, 65, 65, 65, 65])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -215,7 +223,7 @@ def gerar_pdf_etiqueta_qdc():
     
     elementos.append(Paragraph("4. Sinalização Compulsória de Segurança (Item 6.1.5.1)", estilo_sub))
     
-    # CORREÇÃO DA SINTAXE DO AVISO DA NBR AQUI
+    # Correção completa e definitiva da interpolação de strings sem quebra de NameError
     AVISO_TEXTO = [[Paragraph(f"<b>⚠️ {AVISO_NBR}</b>", estilo_aviso)]]
     t_aviso = Table(AVISO_TEXTO, colWidths=[540])
     t_aviso.setStyle(TableStyle([
