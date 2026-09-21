@@ -6,8 +6,8 @@ import json
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 
 # Configuração primária obrigatória do Streamlit
@@ -160,7 +160,6 @@ with st.sidebar:
     if st.session_state.funcionarios:
         for idx, f in enumerate(list(st.session_state.funcionarios)):
             c_label = "⭐ RESP" if f["Responsavel"] else "Colab"
-            # CORREÇÃO DEFINITIVA DO TYPEERROR: Passando explicitamente o argumento numérico inteiro exigido pelo Streamlit
             col_f1, col_f2 = st.columns(2)
             with col_f1: st.write(f"**{f['Nome']}** ({f['Função']}) - {c_label}")
             with col_f2:
@@ -172,7 +171,7 @@ st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("ERP Corporativo Base SQLite: Memorial Completo de Redes de Utilidades e Infraestrutura")
 st.markdown("---")
 
-st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
+st.write("### ### 👤 Central de Clientes (Gravar e Selecionar)")
 lista_clientes = listar_clientes_db()
 opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
 
@@ -233,7 +232,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             bitola_final = bitolas_comerciais[idx + 1]
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -255,9 +254,12 @@ with tab_civil:
         if st.button("📊 Processar Cubagem Global Completa"):
             st.session_state.lista_materials_civil = [
                 {"Etapa": "01. Locação da Obra", "Material": "Tábua de Pinus 30cm x 3m (Gabarito)", "Quantidade": math.ceil(perimetro_paredes * 0.4), "Unidade": "un"},
+                {"Etapa": "01. Locação da Obra", "Material": "Piquete / Pontalete de Madeira 5x5cm", "Quantidade": 25, "Unidade": "un"},
                 {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa (Sapatas)", "Quantidade": round(qtd_sapatas * 0.4, 2), "Unidade": "m³"},
                 {"Etapa": "02. Infraestrutura", "Material": "Vergalhão de Aço CA-50 Cortado 10mm", "Quantidade": round(qtd_sapatas * 25.0, 1), "Unidade": "kg"},
                 {"Etapa": "03. Estrutura e Piso", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": math.ceil(area_obra * 1.1), "Unidade": "sc"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Areia Média Lavada Grossa Comercial", "Quantidade": round(area_obra * 0.12, 1), "Unidade": "m³"},
+                {"Etapa": "03. Estrutura e Piso", "Material": "Brita Graduada No 1 para Concreto", "Quantidade": round(area_obra * 0.14, 1), "Unidade": "m³"},
                 {"Etapa": "04. Alvenaria", "Material": "Tijolo Cerâmico Baiano 8 Furos", "Quantidade": math.ceil(perimetro_paredes * 2.8 * 25 * 1.1), "Unidade": "un"},
                 {"Etapa": "05. Acabamentos", "Material": "Piso Porcelanato Retificado Comercial", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"}
             ]
@@ -276,7 +278,6 @@ with tab_civil:
             st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
             if st.button("📊 Processar Prancha de Ambientes"):
                 area_total = sum(c["Comprimento"] * c["Largura"] for c in st.session_state.comodos)
-                perimetro_total = sum(((c["Comprimento"] * 2) + (c["Largura"] * 2)) for c in st.session_state.comodos)
                 st.session_state.lista_materials_civil = [
                     {"Etapa": "01. Estrutura (Prancha)", "Material": "Cimento CP II (Saco 50kg)", "Quantidade": math.ceil(area_total * 1.1), "Unidade": "sc"},
                     {"Etapa": "02. Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total * 1.1, 1), "Unidade": "m²"}
@@ -330,6 +331,7 @@ with tab_hidraulica:
     if st.button("📊 Processar Hidráulica"):
         st.session_state.lista_materials_hidraulicos = [
             {"Etapa": "01. Reservatório", "Material": "Caixa d'Água Polietileno 1000L Fortlev", "Quantidade": 1, "Unidade": "un"},
+            {"Etapa": "01. Reservatório", "Material": "Kit Boia Click 3/4 com Registro Esfera", "Quantidade": 1, "Unidade": "jg"},
             {"Etapa": "02. Água Fria", "Material": "Tubo PVC Soldável Marrom 25mm (6m)", "Quantidade": math.ceil(m_tubo_agua / 6.0), "Unidade": "barra"},
             {"Etapa": "03. Esgoto", "Material": "Tubo Esgoto PVC Branco 100mm (6m)", "Quantidade": math.ceil(m_tubo_esgoto / 6.0), "Unidade": "barra"}
         ]
@@ -338,7 +340,6 @@ with tab_hidraulica:
     if st.session_state.lista_materials_hidraulicos:
         st.dataframe(pd.DataFrame(st.session_state.lista_materials_hidraulicos), use_container_width=True)
 
-# EXPANSÃO DEMANDADA: Módulo Computacional de Sistemas de Gás Encanado (GLP/GN)
 with tab_gas:
     st.write("### 🔥 Dimensionamento e Insumos de Redes de Gás Encanado")
     pontos_gas = st.number_input("Quantidade de Pontos de Consumo (Fogão/Aquecedor):", min_value=1, value=2)
@@ -350,12 +351,11 @@ with tab_gas:
             {"Etapa": "02. Regulagem", "Material": "Manômetro de Pressão de Gás Tipo Bourdon 0-4 bar", "Quantidade": 1, "Unidade": "un"},
             {"Etapa": "03. Válvulas", "Material": "Válvula de Esfera Block para Gás Latão Forjado 1/2", "Quantidade": int(pontos_gas), "Unidade": "un"}
         ]
-        st.success("Materiais de gás processados e armazenados!")
+        st.success("Materiais de gás processados!")
         st.rerun()
     if st.session_state.lista_materials_gas:
         st.dataframe(pd.DataFrame(st.session_state.lista_materials_gas), use_container_width=True)
 
-# EXPANSÃO DEMANDADA: Módulo Computacional de Infraestrutura de Telecomunicação e Dados
 with tab_dados:
     st.write("### 🌐 Infraestrutura de Redes de Dados e Internet")
     pontos_rede = st.number_input("Quantidade de Pontos de Rede RJ-45 Cat6:", min_value=2, value=8)
@@ -368,7 +368,7 @@ with tab_dados:
             {"Etapa": "03. Terminais", "Material": "Tomada Keystone RJ-45 Fêmea Cat6 de Embutir", "Quantidade": int(pontos_rede), "Unidade": "un"},
             {"Etapa": "03. Terminais", "Material": "Rack Padrão De Parede 19 Polegadas 6U Completo", "Quantidade": 1, "Unidade": "un"}
         ]
-        st.success("Materiais de dados processados e armazenados!")
+        st.success("Materiais de dados processados!")
         st.rerun()
     if st.session_state.lista_materials_dados:
         st.dataframe(pd.DataFrame(st.session_state.lista_materials_dados), use_container_width=True)
@@ -421,6 +421,8 @@ def gerar_pdf_completo_obra():
     estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=9.5, textColor=colors.HexColor('#0D9488'), spaceBefore=6, spaceAfter=4, fontName='Helvetica-Bold')
     estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=1)
     estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=0)
+    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['Heading3'], fontSize=11, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=4)
+    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS</b>", estilo_titulo), Spacer(1, 4)]
     dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]]
@@ -460,7 +462,6 @@ def gerar_pdf_completo_obra():
         t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('SPAN', (0,-1), (-1,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 3), ('ALIGN', (0,-1), (-1,-1), 'CENTER')]))
         elementos.append(t_qdc)
 
-    # LOOP UNIFICADO DE RENDERING DE TODAS AS NOVAS LISTAS DE UTILIDADES (INCLUI GÁS E INTERNET)
     listas_gerais_obra = [
         ("2. Memorial Quantitativo da Alvenaria e Cubagem Civil", st.session_state.lista_materials_civil, '#475569'),
         ("3. Componentes Elétricos Brutos e Infraestrutura", st.session_state.lista_materials_eletricos, '#0D9488'),
@@ -477,7 +478,6 @@ def gerar_pdf_completo_obra():
             t_m = Table(tbl_d, colWidths=[130.0, 390.0, 140.0, 80.0])
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(cor_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
-
     elementos.append(PageBreak())
     elementos.append(Paragraph("7. Lote de Ativos e Segurança Eletrônica Monitorável", estilo_sub))
     dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente Técnico</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
@@ -492,6 +492,24 @@ def gerar_pdf_completo_obra():
     elementos.append(PageBreak())
     elementos.append(Paragraph("9. Esquema Técnico Multifilar de Bornes por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(st.session_state.lista_circuitos_calc))
+
+    # RETORNO DAS DIRETRIZES TÉCNICAS E OBSERVACÕES DE CAMPO COMPLETAS SOLICITADAS
+    elementos.append(PageBreak())
+    elementos.append(Paragraph("10. Diretrizes Técnicas e Normativas de Campo", estilo_sub))
+    caviso = [
+        Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
+        Spacer(1, 4),
+        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
+        Paragraph("• <b>Identificação de Circuitos:</b> É obrigatório manter todos os disjuntores devidamente identificados nesta tampa de acordo com a fiação correspondente.", estilo_aviso_corpo),
+        Paragraph("• <b>Teste Mensal do DR:</b> Pressione o botão 'T' (Teste) do interruptor diferencial residual mensalmente. Se ele não desarmar e desligar a energia da casa, substitua-o imediatamente (risco de choque).", estilo_aviso_corpo),
+        Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela verde indica funcionamento normal; janela vermelha exige substituição imediata do módulo.", estilo_aviso_corpo),
+        Paragraph("• <b>Seção vs. Disjuntor:</b> Nunca aumente a amperagem de um disjuntor sem recalcular a fiação. O disjuntor protege o fio; alterar o valor sem critério técnico causa incêndio.", estilo_aviso_corpo),
+        Paragraph("• <b>Conexões Seguras:</b> Toda manutenção ou adição de circuito deve utilizar terminais elétricos apropriados (tipo ilhós/tubular). Emendas simples dentro do QDC são proibidas.", estilo_aviso_corpo),
+        Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
+    ]
+    t_av = Table([[caviso]], colWidths=[740.0])
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
+    elementos.append(t_av)
 
     doc.build(elementos)
     buffer.seek(0)
