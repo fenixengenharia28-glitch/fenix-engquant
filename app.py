@@ -73,9 +73,11 @@ def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad, circuitos_
     polos_circuitos = 0
     contagem_dj = {}
     for c in circuitos_list:
-        polos = 2 if "Bifásico" in c["TIPO"] else 1
+        tipo_c = c.get("TIPO", "Monofásico")
+        disj_c = c.get("DISJ", "20A")
+        polos = 2 if "Bifásico" in str(tipo_c) else 1
         polos_circuitos += polos
-        chave_dj = f"Disjuntor DIN {c['TIPO']} {c['DISJ']}"
+        chave_dj = f"Disjuntor DIN {tipo_c} {disj_c}"
         contagem_dj[chave_dj] = contagem_dj.get(chave_dj, 0) + 1
     for dj_nome, qtd in contagem_dj.items():
         materiais.append({"Etapa": "Dispositivos QDC", "Material": dj_nome, "Quantidade": qtd, "Unidade": "un"})
@@ -105,10 +107,10 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
         d.add(Circle(140, y, 2, fillColor=colors.black, strokeColor=colors.black))
         d.add(Line(140, y, 190, y, strokeColor=colors.black, strokeWidth=1.2))
         d.add(Line(190, y, 205, y - 8, strokeColor=colors.black, strokeWidth=1.5))
-        d.add(String(185, y + 5, f"{c['CURVA']}{c['DISJ']}", fontSize=7, fontName='Helvetica-Bold'))
+        d.add(String(185, y + 5, f"{c.get('CURVA','C')}{c.get('DISJ','20A')}", fontSize=7, fontName='Helvetica-Bold'))
         d.add(Line(205, y, 240, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(String(212, y + 5, c["COND"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
-        d.add(String(250, y - 2, f"C{c['CIRC']}: {c['DESCRIÇÃO'][:35]} - {c['FASE']} ({c['POT_W']}W)", fontSize=7.5, fontName='Helvetica'))
+        d.add(String(212, y + 5, str(c.get('COND','2.5 mm²')), fontSize=7, fillColor=colors.HexColor('#2563EB')))
+        d.add(String(250, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO','Circuito Custom'))[:35]} - {c.get('FASE','R')} ({c.get('POT_W',1000)}W)", fontSize=7.5, fontName='Helvetica'))
     return d
 
 def gerar_desenho_multifilar(circuitos_list):
@@ -124,11 +126,11 @@ def gerar_desenho_multifilar(circuitos_list):
         y = (altura_d - 50) - (idx * 35)
         if idx % 2 == 0:
             d.add(Rect(30, y - 10, 130, 24, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
-            d.add(String(35, y + 2, f"C{c['CIRC']}: {c['DESCRIÇÃO'][:16]}", fontSize=7, fontName='Helvetica-Bold'))
+            d.add(String(35, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:16]}", fontSize=7, fontName='Helvetica-Bold'))
             d.add(Line(160, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
         else:
             d.add(Rect(360, y - 10, 130, 24, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
-            d.add(String(365, y + 2, f"C{c['CIRC']}: {c['DESCRIÇÃO'][:16]}", fontSize=7, fontName='Helvetica-Bold'))
+            d.add(String(365, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:16]}", fontSize=7, fontName='Helvetica-Bold'))
             d.add(Line(360, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
     return d
 with tab_civil:
@@ -186,16 +188,18 @@ with tab_eletrica:
     concessionaria_sel = st.selectbox("🔌 Concessionária Distribuidora:", list(CONCESSIONARIAS.keys()), key="sb_concessionaria_el")
     dados_c = CONCESSIONARIAS[concessionaria_sel]
     
-    st.write("💡 *Dica: Use as ferramentas no rodapé da planilha abaixo para adicionar (+) quantas linhas quiser e cadastrar quantos circuitos desejar de forma ilimitada.*")
-    
-    # MUDANÇA DEMANDADA: Editor de planilha dinâmico para linhas e circuitos infinitos
+    st.write("💡 *Dica: Clique no '+' no rodapé da tabela para adicionar novos circuitos de forma ilimitada.*")
     st.session_state.df_circuitos = st.data_editor(st.session_state.df_circuitos, num_rows="dynamic", use_container_width=True)
     circuitos_validos = st.session_state.df_circuitos.to_dict(orient="records")
 
 try: area_obra_ref = area_obra
 except: area_obra_ref = 70.0
 
-pot_total = sum(int(c["POT_W"]) for c in circuitos_validos if str(c["POT_W"]).isdigit())
+pot_total = 0
+for c in circuitos_validos:
+    p_w = c.get("POT_W", 0)
+    if str(p_w).isdigit(): pot_total += int(p_w)
+
 tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
 detalhe_caixa = "Caixa Tipo 'F'"
 
@@ -210,7 +214,7 @@ def gerar_pdf_completo_obra():
     estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=1)
     estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=0)
     estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['Heading3'], fontSize=11, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=4)
-    estilo_aviso_corpo = ParagraphStyle('AC', parent=stilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
+    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS</b>", estilo_titulo), Spacer(1, 4)]
     
@@ -235,23 +239,24 @@ def gerar_pdf_completo_obra():
         dados_qdc_pdf = [[Paragraph(f"<b>{h}</b>", estilo_celula) for h in cabecalhos_modelo]]
         
         tot_r, tot_s = 0, 0
-        for c in circuitos_validos:
-            r_val = int(c["POT_W"]) if c["FASE"] == "R" else (int(c["POT_W"])//2 if "RS" in c["FASE"] else 0)
-            s_val = int(c["POT_W"]) if c["FASE"] == "S" else (int(c["POT_W"])//2 if "RS" in c["FASE"] else 0)
+        for idx, c in enumerate(circuitos_validos):
+            p_w_val = int(c.get("POT_W", 0)) if str(c.get("POT_W", 0)).isdigit() else 0
+            fase_c = str(c.get("FASE", "R"))
+            r_val = p_w_val if fase_c == "R" else (p_w_val//2 if "RS" in fase_c else 0)
+            s_val = p_w_val if fase_c == "S" else (p_w_val//2 if "RS" in fase_c else 0)
             tot_r += r_val
             tot_s += s_val
             dados_qdc_pdf.append([
-                Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq),
-                Paragraph(str(c["POT_W"]) if "ILUM" in str(c["DESCRIÇÃO"]).upper() else "0", estilo_celula),
-                Paragraph(str(c["POT_W"]) if "TUE" in str(c["DESCRIÇÃO"]).upper() else "0", estilo_celula),
-                Paragraph(str(c["POT_W"]), estilo_celula), Paragraph(str(c["POT_W"]), estilo_celula),
+                Paragraph(str(c.get("CIRC", idx+1)), estilo_celula), Paragraph(str(c.get("DESCRIÇÃO","")), estilo_celula_esq),
+                Paragraph(str(p_w_val) if "ILUM" in str(c.get("DESCRIÇÃO","")).upper() else "0", estilo_celula),
+                Paragraph(str(p_w_val) if "TUE" in str(c.get("DESCRIÇÃO","")).upper() else "0", estilo_celula),
+                Paragraph(str(p_w_val), estilo_celula), Paragraph(str(p_w_val), estilo_celula),
                 Paragraph("80%", estilo_celula), Paragraph("10A", estilo_celula),
-                Paragraph(f"{c['CURVA']}{c['DISJ']}", estilo_celula), Paragraph(str(c["COND"]), estilo_celula),
-                Paragraph(str(c["FASE"]), estilo_celula), Paragraph(f"{c['TENSÃO']}V", estilo_celula),
+                Paragraph(f"{c.get('CURVA','C')}{c.get('DISJ','20A')}", estilo_celula), Paragraph(str(c.get("COND","2.5")), estilo_celula),
+                Paragraph(fase_c, estilo_celula), Paragraph(f"{c.get('TENSÃO',127)}V", estilo_celula),
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # MUDANÇA DEMANDADA: Centralizar todas estas informações no meio mesclado: Potência Instalada Total: X W | R: Y VA | S: Z VA
         texto_centralizado_modelo = f"<b>Potência Instalada Total: {pot_total} W | {tot_r}VA | {tot_s}VA</b>"
         dados_qdc_pdf.append([Paragraph(texto_centralizado_modelo, estilo_celula)] + [""] * 13)
         
@@ -272,19 +277,23 @@ def gerar_pdf_completo_obra():
         t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
 
+    if circuitos_validos:
+        elementos.append(PageBreak())
+        elementos.append(Paragraph("3. Diagrama Unifilar e Distribuição de Barramentos", estilo_sub))
+        elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, circuitos_validos))
+        elementos.append(PageBreak())
+        elementos.append(Paragraph("4. Esquema Técnico Multifilar de Bornes", estilo_sub))
+        elementos.append(gerar_desenho_multifilar(circuitos_validos))
+
     elementos.append(PageBreak())
-    elementos.append(Paragraph("3. Diretrizes Técnicas Regulamentares", estilo_sub))
+    elementos.append(Paragraph("5. Diretrizes Técnicas Regulamentares", estilo_sub))
     caviso = [
         Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
         Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
         Paragraph("• <b>Identificação de Circuitos:</b> É obrigatório manter todos os disjuntores devidamente identificados nesta tampa de acordo com a fiação correspondente.", estilo_aviso_corpo),
         Paragraph("• <b>Teste Mensal do DR:</b> Pressione o botão 'T' (Teste) do interruptor diferencial residual mensalmente. Se ele não desarmar e desligar a energia da casa, substitua-o imediatamente (risco de choque).", estilo_aviso_corpo),
         Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela verde indica funcionamento normal; janela vermelha exige substituição imediata do módulo.", estilo_aviso_corpo),
-        Paragraph("• <b>Seção vs. Disjuntor:</b> Nunca aumente a amperagem de um disjuntor sem recalcular a fiação. O disjuntor protege o fio; alterar o valor sem critério técnico causa incêndio.", estilo_aviso_corpo),
         Paragraph("• <b>Conexões Seguras:</b> Toda manutenção ou adição de circuito deve utilizar terminais elétricos apropriados (tipo ilhós/tubular). Emendas simples dentro do QDC são proibidas.", estilo_aviso_corpo),
-        Paragraph("• <b>Manutenção Preventiva:</b> A cada 12 meses, realize a manutenção com o quadro totalmente desligado, efetuando o reaperto de todos os parafusos (disjuntores e barramentos de neutro/terra).", estilo_aviso_corpo),
-        Paragraph("• <b>Distribuição de Cargas:</b> Novas cargas (ar-condicionado, eletrodomésticos potentes) devem ser distribuídas entre as fases para evitar sobrecarga no cabo geral de entrada.", estilo_aviso_corpo),
-        Paragraph("• <b>Área de Segurança:</b> Mantenha a frente deste quadro totalmente desobstruída. Nunca guarde vassouras, caixas ou objetos que dificultem o acesso rápido.", estilo_aviso_corpo),
         Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
     ]
     t_av = Table([[caviso]], colWidths=[740.0])
@@ -297,5 +306,4 @@ def gerar_pdf_completo_obra():
 
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão")
-    if st.session_state.lista_materials_civil or circuitos_validos:
-        st.download_button(label="📥 Baixar Memorial Técnico Consolidado (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia.pdf", mime="application/pdf", key="btn_pdf_real")
+    st.download_button(label="📥 Baixar Memorial Técnico Consolidado (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia.pdf", mime="application/pdf", key="btn_pdf_real")
