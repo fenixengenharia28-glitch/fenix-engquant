@@ -76,60 +76,60 @@ def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
 tab_civil, tab_eletrica, tab_pdf = st.tabs(["🧱 1. Quantitativo Civil", "⚡ 2. Quadro de Cargas (QDC)", "📥 3. Fechamento & Relatório PDF"])
 def gerar_desenho_unifilar(cabo_pad, dj_pad):
     n_circ = len(st.session_state.lista_circuitos)
-    altura_d = max(160, (n_circ * 35) + 60)
-    d = Drawing(740, altura_d)
-    d.add(Line(20, altura_d - 40, 100, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(20, altura_d - 30, f"Entrada: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
-    d.add(Line(100, altura_d - 40, 115, altura_d - 50, strokeColor=colors.black, strokeWidth=2))
-    d.add(String(100, altura_d - 30, f"Geral {dj_pad}", fontSize=9, fontName='Helvetica-Bold'))
-    d.add(Line(140, altura_d - 40, 140, 20, strokeColor=colors.black, strokeWidth=2))
-    d.add(Line(115, altura_d - 40, 140, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    altura_d = max(140, (n_circ * 30) + 50)
+    d = Drawing(720, altura_d)
+    d.add(Line(20, altura_d - 30, 100, altura_d - 30, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(String(20, altura_d - 22, f"Entrada: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
+    d.add(Line(100, altura_d - 30, 115, altura_d - 40, strokeColor=colors.black, strokeWidth=2))
+    d.add(String(100, altura_d - 22, f"Geral {dj_pad}", fontSize=8, fontName='Helvetica-Bold'))
+    d.add(Line(140, altura_d - 30, 140, 15, strokeColor=colors.black, strokeWidth=2))
+    d.add(Line(115, altura_d - 30, 140, altura_d - 30, strokeColor=colors.black, strokeWidth=1.5))
     for idx, c in enumerate(st.session_state.lista_circuitos):
-        y = (altura_d - 70) - (idx * 35)
+        y = (altura_d - 55) - (idx * 30)
         d.add(Circle(140, y, 2, fillColor=colors.black, strokeColor=colors.black))
-        d.add(Line(140, y, 200, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(Line(200, y, 215, y - 10, strokeColor=colors.black, strokeWidth=1.5))
-        d.add(String(195, y + 6, f"{c['Curva']}{c['Disjuntor']}", fontSize=8, fontName='Helvetica-Bold'))
-        d.add(Line(215, y, 260, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(String(225, y + 6, c["Cabo"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
-        d.add(String(270, y - 3, f"C{c['Circuito']}: {c['Descrição']} - {c['Fase']} ({c['Carga']}W)", fontSize=8, fontName='Helvetica'))
+        d.add(Line(140, y, 190, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(Line(190, y, 205, y - 8, strokeColor=colors.black, strokeWidth=1.5))
+        d.add(String(185, y + 5, f"{c['Curva']}{c['Disjuntor']}", fontSize=7, fontName='Helvetica-Bold'))
+        d.add(Line(205, y, 240, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(String(212, y + 5, c["Cabo"], fontSize=7, fillColor=colors.HexColor('#2563EB')))
+        d.add(String(250, y - 2, f"C{c['Circuito']}: {c['Descrição'][:35]} - {c['Fase']} ({c['Carga']}W)", fontSize=7.5, fontName='Helvetica'))
     return d
 
 def gerar_desenho_multifilar():
     n_circ = len(st.session_state.lista_circuitos)
-    altura_d = max(200, (n_circ * 45) + 80)
-    d = Drawing(740, altura_d)
-    x_fase1, x_fase2, x_neutro, x_terra = 220, 260, 300, 340
+    altura_d = max(180, (n_circ * 35) + 60)
+    d = Drawing(720, altura_d)
+    x_fase1, x_fase2, x_neutro, x_terra = 220, 250, 280, 310
     
-    d.add(String(x_fase1, altura_d - 20, "Fase R", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.red))
-    d.add(String(x_fase2, altura_d - 20, "Fase S", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
-    d.add(String(x_neutro, altura_d - 20, "Neutro (N)", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.blue))
-    d.add(String(x_terra, altura_d - 20, "Terra (T)", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
+    d.add(String(x_fase1, altura_d - 15, "R", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.red))
+    d.add(String(x_fase2, altura_d - 15, "S", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#9333EA')))
+    d.add(String(x_neutro, altura_d - 15, "N", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.blue))
+    d.add(String(x_terra, altura_d - 15, "T", textAnchor='middle', fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#16A34A')))
     
-    d.add(Line(x_fase1, altura_d - 25, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.5))
-    d.add(Line(x_fase2, altura_d - 25, x_fase2, 20, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
-    d.add(Line(x_neutro, altura_d - 25, x_neutro, 20, strokeColor=colors.blue, strokeWidth=1.5))
-    d.add(Line(x_terra, altura_d - 25, x_terra, 20, strokeColor=colors.HexColor('#16A34A'), strokeWidth=1.2))
+    d.add(Line(x_fase1, altura_d - 20, x_fase1, 15, strokeColor=colors.red, strokeWidth=1.5))
+    d.add(Line(x_fase2, altura_d - 20, x_fase2, 15, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
+    d.add(Line(x_neutro, altura_d - 20, x_neutro, 15, strokeColor=colors.blue, strokeWidth=1.5))
+    d.add(Line(x_terra, altura_d - 20, x_terra, 15, strokeColor=colors.HexColor('#16A34A'), strokeWidth=1.2))
     
     for idx, c in enumerate(st.session_state.lista_circuitos):
-        y = (altura_d - 65) - (idx * 45)
+        y = (altura_d - 50) - (idx * 35)
         if idx % 2 == 0:
-            d.add(Rect(30, y - 12, 120, 28, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
-            d.add(String(35, y + 2, f"Circuito {c['Circuito']}", fontSize=8, fontName='Helvetica-Bold'))
-            d.add(String(35, y - 8, f"{c['Curva']}{c['Disjuntor']} - {c['Cabo']}", fontSize=7))
-            d.add(Line(150, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
-            d.add(Circle(x_fase1, y, 2.5, fillColor=colors.black, strokeColor=colors.black))
+            d.add(Rect(30, y - 10, 130, 24, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
+            d.add(String(35, y + 2, f"C{c['Circuito']}: {c['Descrição'][:16]}", fontSize=7, fontName='Helvetica-Bold'))
+            d.add(String(35, y - 6, f"{c['Curva']}{c['Disjuntor']} - {c['Cabo']}", fontSize=6.5))
+            d.add(Line(160, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
+            d.add(Circle(x_fase1, y, 2, fillColor=colors.black, strokeColor=colors.black))
             if "S" in c["Fase"]:
-                d.add(Line(150, y - 4, x_fase2, y - 4, strokeColor=colors.black, strokeWidth=1))
-                d.add(Circle(x_fase2, y - 4, 2.5, fillColor=colors.black, strokeColor=colors.black))
+                d.add(Line(160, y - 3, x_fase2, y - 3, strokeColor=colors.black, strokeWidth=1))
+                d.add(Circle(x_fase2, y - 3, 2, fillColor=colors.black, strokeColor=colors.black))
         else:
-            d.add(Rect(420, y - 12, 120, 28, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
-            d.add(String(425, y + 2, f"Circuito {c['Circuito']}", fontSize=8, fontName='Helvetica-Bold'))
-            d.add(String(425, y - 8, f"{c['Curva']}{c['Disjuntor']} - {c['Cabo']}", fontSize=7))
-            d.add(Line(420, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
-            d.add(Circle(x_neutro, y, 2, fillColor=colors.blue, strokeColor=colors.blue))
-            d.add(Line(420, y - 4, x_terra, y - 4, strokeColor=colors.HexColor('#16A34A'), strokeWidth=0.8))
-            d.add(Circle(x_terra, y - 4, 2, fillColor=colors.HexColor('#16A34A'), strokeColor=colors.HexColor('#16A34A')))
+            d.add(Rect(360, y - 10, 130, 24, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
+            d.add(String(365, y + 2, f"C{c['Circuito']}: {c['Descrição'][:16]}", fontSize=7, fontName='Helvetica-Bold'))
+            d.add(String(365, y - 6, f"{c['Curva']}{c['Disjuntor']} - {c['Cabo']}", fontSize=6.5))
+            d.add(Line(360, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
+            d.add(Circle(x_neutro, y, 1.8, fillColor=colors.blue, strokeColor=colors.blue))
+            d.add(Line(360, y - 3, x_terra, y - 3, strokeColor=colors.HexColor('#16A34A'), strokeWidth=0.8))
+            d.add(Circle(x_terra, y - 3, 1.8, fillColor=colors.HexColor('#16A34A'), strokeColor=colors.HexColor('#16A34A')))
     return d
 with tab_civil:
     st.write("### 📐 Parâmetros de Entrada da Construção Civil")
@@ -155,10 +155,10 @@ with tab_civil:
         st.session_state.lista_materiais_civil.append({"Etapa": "Estrutura e Piso", "Material": "Tela Soldada Q-92", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"})
         area_parede = perimetro_paredes * pe_direito
         total_tijolos = math.ceil(area_parede * (25 if "Tijolo" in tipo_tijolo else 12.5) * 1.1)
-        st.session_state.lista_materiais_civil.append({"Etapa": "Alvenaria", "Material": "Tijolos/Blocos", "Quantidade": total_tijolos, "Unidade": "un"})
+        st.session_state.lista_materiais_civil.append({"Etapa": "Alvenaria", "Material": "Tijolos/Blocos de Vedação", "Quantidade": total_tijolos, "Unidade": "un"})
         st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Piso Porcelanato Retificado", "Quantidade": round(area_obra * 1.1, 1), "Unidade": "m²"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Argamassa AC-III (20kg)", "Quantidade": math.ceil(area_obra * 1.15 * 5.0 / 20.0), "Unidade": "sc"})
-        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Tinta Látex Acrílica (18L)", "Quantidade": math.ceil((area_parede * 2) * 0.25 / 18.0), "Unidade": "lt"})
+        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Argamassa AC-III (Saco 20kg)", "Quantidade": math.ceil(area_obra * 1.15 * 5.0 / 20.0), "Unidade": "sc"})
+        st.session_state.lista_materiais_civil.append({"Etapa": "Acabamento", "Material": "Tinta Látex Acrílica Premium (18L)", "Quantidade": math.ceil((area_parede * 2) * 0.25 / 18.0), "Unidade": "lt"})
         st.success("Levantamento civil gerado!")
         st.rerun()
 
@@ -181,11 +181,11 @@ with tab_eletrica:
                 {"Circuito": "5", "Descrição": "TUG - Sala, Banheiro", "Carga": 1040, "VA": 1300, "Ilum": "0", "Tug100": "3", "Tug600": "0", "Tug1000": "1", "PotEsp": "0", "Demanda": "60,00%", "FP": "80,00%", "Ib (A)": 10.24, "Disjuntor": "20A", "Curva": "C", "Cabo": "2.5 mm²", "Fase": "R", "Tensão": 127, "R_val": "1300", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
                 {"Circuito": "6", "Descrição": "TUG - Cozinha, Área de Serviço", "Carga": 1760, "VA": 2200, "Ilum": "0", "Tug100": "4", "Tug600": "3", "Tug1000": "0", "PotEsp": "0", "Demanda": "60,00%", "FP": "80,00%", "Ib (A)": 17.32, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2200", "T_val": "0", "Tipo": "Monofásico"},
                 {"Circuito": "7", "Descrição": "TUE - Micro-Ondas", "Carga": 2450, "VA": 2450, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2450", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.29, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "2450", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
-                {"Circuito": "8", "Descrição": "TUE - Fritadeira", "Carga": 2450, "VA": 2450, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2450", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.29, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2450", "T_val": "0", "Tipo": "Monofásico"},
-                {"Circuito": "9", "Descrição": "TUE - Secador de Cabelo 1", "Carga": 2500, "VA": 2500, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2500", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "2500", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
-                {"Circuito": "10", "Descrição": "TUE - Secador de Cabelo 2", "Carga": 2500, "VA": 2500, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2500", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2500", "T_val": "0", "Tipo": "Monofásico"},
-                {"Circuito": "11", "Descrição": "TUE - Chuveiro 1", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 61.42, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "7800", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
-                {"Circuito": "12", "Descrição": "TUE - Chuveiro 2", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 35.45, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "RS", "Tensão": 220, "R_val": "3900", "S_val": "3900", "T_val": "0", "Tipo": "Bifásico"}
+                {"Circuito": "8", "Descrição": "TUE - Fritadeira Elétrica de Mesa", "Carga": 2450, "VA": 2450, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2450", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.29, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2450", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "9", "Descrição": "TUE - Secador de Cabelo Suíte 1", "Carga": 2500, "VA": 2500, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2500", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "2500", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "10", "Descrição": "TUE - Secador de Cabelo Social 2", "Carga": 2500, "VA": 2500, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "2500", "Demanda": "80,00%", "FP": "80,00%", "Ib (A)": 19.69, "Disjuntor": "32A", "Curva": "C", "Cabo": "4.0 mm²", "Fase": "S", "Tensão": 127, "R_val": "0", "S_val": "2500", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "11", "Descrição": "TUE - Chuveiro Banheiro Social", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 61.42, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "R", "Tensão": 127, "R_val": "7800", "S_val": "0", "T_val": "0", "Tipo": "Monofásico"},
+                {"Circuito": "12", "Descrição": "TUE - Chuveiro Master Suíte", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 35.45, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "RS", "Tensão": 220, "R_val": "3900", "S_val": "3900", "T_val": "0", "Tipo": "Bifásico"}
             ]
             st.rerun()
 
@@ -242,52 +242,77 @@ def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
     estilos = getSampleStyleSheet()
-    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=13, textColor=colors.HexColor('#1E3A8A'), spaceAfter=6)
-    estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=10, textColor=colors.HexColor('#0D9488'), spaceBefore=8, spaceAfter=4, fontName='Helvetica-Bold')
-    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['BodyText'], fontSize=8.5, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold')
-    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=7.5)
     
-    elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS E HOMOLOGAÇÃO</b>", estilo_titulo), Spacer(1, 6)]
+    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=12, textColor=colors.HexColor('#1E3A8A'), spaceAfter=6)
+    estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=9.5, textColor=colors.HexColor('#0D9488'), spaceBefore=8, spaceAfter=4, fontName='Helvetica-Bold')
+    estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=1)
+    estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=0)
+    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['BodyText'], fontSize=8, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold')
+    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=7, leading=8)
+    
+    elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS E HOMOLOGAÇÃO</b>", estilo_titulo), Spacer(1, 4)]
     elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Técnica da {concessionaria_sel}</b>", estilo_sub))
     
     dados_padrao_pdf = [
-        ["Parâmetro do Padrão", "Especificação Conforme Norma Técnica Vigente"],
-        ["Norma Técnica Base", dados_c_global["norma"]], ["Tipo de Fornecimento", tipo_entrada],
-        ["Cabo do Ramal (Entrada)", cabo_padrao], ["Disjuntor Geral da Caixa", dj_padrao], ["Modelo de Caixa Sugerido", detalhe_caixa]
+        [Paragraph("<b>Parâmetro do Padrão</b>", estilo_celula), Paragraph("<b>Especificação Conforme Norma Técnica Vigente</b>", estilo_celula_esq)],
+        [Paragraph("Norma Técnica Base", estilo_celula), Paragraph(dados_c_global["norma"], estilo_celula_esq)],
+        [Paragraph("Tipo de Fornecimento", estilo_celula), Paragraph(tipo_entrada, estilo_celula_esq)],
+        [Paragraph("Cabo do Ramal (Entrada)", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
+        [Paragraph("Disjuntor Geral da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)],
+        [Paragraph("Modelo de Caixa Sugerido", estilo_celula), Paragraph(detalhe_caixa, estilo_celula_esq)]
     ]
-    t_pad = Table(dados_padrao_pdf, colWidths=[200, 340])
-    t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)]))
+    t_pad = Table(dados_padrao_pdf, colWidths=[180, 540])
+    t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_pad)
-    elementos.append(Spacer(1, 10))
+    elementos.append(Spacer(1, 8))
 
     if st.session_state.lista_circuitos:
         elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Distribuição por Fase (Modelo do Anexo)", estilo_sub))
-        cabecalhos_modelo = ["CIRC", "DESCRIÇÃO DO CIRCUITO", "POT ILUM", "POT ESP", "POT (W)", "POT (VA)", "DEM (%)", "CORR (A)", "DISJ", "COND", "FASE", "TENSÃO", "FAS R", "FAS S"]
-        dados_qdc_pdf = [cabecalhos_modelo]
-        for c in st.session_state.lista_circuitos:
-            dados_qdc_pdf.append([c["Circuito"], c["Descrição"], f"{c['Ilum']}VA", f"{c['PotEsp']}VA", f"{c['Carga']}W", f"{c['VA']}VA", c["Demanda"], f"{c['Ib (A)']}A", f"{c['Curva']}{c['Disjuntor']}", c["Cabo"], c["Fase"], f"{c['Tensão']}V", f"{c['R_val']}VA", f"{c['S_val']}VA"])
-        dados_qdc_pdf.append(["TOTAL", f"Potência Total Instalada: {pot_total} W", "", "", "", "", "", "", "", "", "", "", f"{sum(int(c['R_val']) for c in st.session_state.lista_circuitos)}VA", f"{sum(int(c['S_val']) for c in st.session_state.lista_circuitos)}VA"])
         
-        t_qdc = Table(dados_qdc_pdf, colWidths=[25, 185, 45, 45, 45, 45, 40, 45, 40, 45, 30, 40, 55, 55])
-        t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('ALIGN', (1,1), (1,-2), 'LEFT'), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 3), ('FONTSIZE', (0,0), (-1,-1), 7.5)]))
+        cabecalhos_modelo = ["CIRC", "DESCRIÇÃO DO CIRCUITO", "POT ILUM", "POT ESP", "POT (W)", "POT (VA)", "DEM (%)", "CORR (A)", "DISJ", "COND", "FASE", "TENSÃO", "FAS R", "FAS S"]
+        dados_qdc_pdf = [[Paragraph(f"<b>{h}</b>", estilo_celula) for h in cabecalhos_modelo]]
+        
+        for c in st.session_state.lista_circuitos:
+            dados_qdc_pdf.append([
+                Paragraph(c["Circuito"], estilo_celula), Paragraph(c["Descrição"], estilo_celula_esq),
+                Paragraph(f"{c['Ilum']}VA", estilo_celula), Paragraph(f"{c['PotEsp']}VA", estilo_celula),
+                Paragraph(f"{c['Carga']}W", estilo_celula), Paragraph(f"{c['VA']}VA", estilo_celula),
+                Paragraph(c["Demanda"], estilo_celula), Paragraph(f"{c['Ib (A)']}A", estilo_celula),
+                Paragraph(f"{c['Curva']}{c['Disjuntor']}", estilo_celula), Paragraph(c["Cabo"], estilo_celula),
+                Paragraph(c["Fase"], estilo_celula), Paragraph(f"{c['Tensão']}V", estilo_celula),
+                Paragraph(f"{c['R_val']}VA", estilo_celula), Paragraph(f"{c['S_val']}VA", estilo_celula)
+            ])
+            
+        tot_r = sum(int(c['R_val']) for c in st.session_state.lista_circuitos)
+        tot_s = sum(int(c['S_val']) for c in st.session_state.lista_circuitos)
+        dados_qdc_pdf.append([Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph(f"<b>Potência Total Instalada: {pot_total} W</b>", estilo_celula_esq), "", "", "", "", "", "", "", "", "", "", Paragraph(f"<b>{tot_r}VA</b>", estilo_celula), Paragraph(f"<b>{tot_s}VA</b>", estilo_celula)])
+        
+        # 14 Colunas travadas em tamanho menor para não estourarem a folha: Total = 745
+        t_qdc = Table(dados_qdc_pdf, colWidths=[30, 205, 45, 45, 45, 45, 45, 45, 40, 45, 35, 40, 40, 40])
+        t_qdc.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
+            ('SPAN', (1,-1), (11,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 2)
+        ]))
         elementos.append(t_qdc)
         elementos.append(Spacer(1, 8))
 
     if st.session_state.lista_materiais_civil:
         elementos.append(Paragraph("2. Lote de Materiais da Construção Civil", estilo_sub))
-        dados_civil = [["Etapa Civil", "Material Otimizado", "Quantidade", "Unidade"]]
-        for mat in st.session_state.lista_materiais_civil: dados_civil.append([mat["Etapa"], mat["Material"], str(mat["Quantidade"]), mat["Unidade"]])
-        t_civ = Table(dados_civil, colWidths=[130, 250, 90, 70])
-        t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 4), ('FONTSIZE', (0,0), (-1,-1), 8)]))
+        dados_civil = [[Paragraph("<b>Etapa Civil</b>", estilo_celula), Paragraph("<b>Material Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
+        for mat in st.session_state.lista_materiais_civil:
+            dados_civil.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
+        t_civ = Table(dados_civil, colWidths=[120, 420, 100, 80])
+        t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
         elementos.append(Spacer(1, 8))
         
     if st.session_state.lista_materiais_eletricos:
         elementos.append(Paragraph("3. Lote de Materiais e Componentes Elétricos Brutos", estilo_sub))
-        dados_el = [["Etapa Elétrica", "Componente Detalhado", "Quantidade", "Unidade"]]
-        for m in st.session_state.lista_materiais_eletricos: dados_el.append([m["Etapa"], m["Material"], str(m["Quantidade"]), m["Unidade"]])
-        t_el = Table(dados_el, colWidths=[130, 250, 90, 70])
-        t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('TEXTCOLOR', (0,0), (-1,0), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('FONTSIZE', (0,0), (-1,-1), 8), ('PADDING', (0,0), (-1,-1), 4)]))
+        dados_el = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Detalhado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
+        for m in st.session_state.lista_materiais_eletricos:
+            dados_el.append([Paragraph(m["Etapa"], estilo_celula), Paragraph(m["Material"], estilo_celula_esq), Paragraph(str(m["Quantidade"]), estilo_celula), Paragraph(m["Unidade"], estilo_celula)])
+        t_el = Table(dados_el, colWidths=[120, 420, 100, 80])
+        t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_el)
         elementos.append(Spacer(1, 8))
 
@@ -301,8 +326,8 @@ def gerar_pdf_completo_obra():
 
     elementos.append(Paragraph("6. Painel de Segurança e Advertências Obrigatórias (NBR 5410 & NR-10)", estilo_sub))
     caviso = [Paragraph("<b>⚠️ OBSERVACÕES TÉCNICAS E DE SEGURANÇA</b>", estilo_aviso_tit), Paragraph("• <b>Mapeamento por Fase:</b> Cargas balanceadas entre os barramentos R e S para evitar sobreaquecimento do Neutro.", estilo_aviso_corpo), Paragraph("• <b>Proteção Humana:</b> Botão (T) do IDR geral deve ser testado mensalmente pelo usuário final.", estilo_aviso_corpo)]
-    t_av = Table([[caviso]], colWidths=[540])
-    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#EF4444')), ('PADDING', (0,0), (-1,-1), 6)]))
+    t_av = Table([[caviso]], colWidths=[720])
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#EF4444')), ('PADDING', (0,0), (-1,-1), 5)]))
     elementos.append(t_av)
     
     doc.build(elementos)
