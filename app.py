@@ -42,14 +42,12 @@ def carregar_dados_permanentes(chave, valor_padrao):
     row = cursor.fetchone()
     conn.close()
     if row:
-        return json.loads(row[0])
+        return json.loads(row)
     return valor_padrao
 
-# CORREÇÃO DEFINITIVA DO KEYERROR: Inicialização garantida de todas as variáveis no Session State
-if "lista_materiais_civil" not in st.session_state:
-    st.session_state.lista_materiais_civil = []
-if "lista_materiais_eletricos" not in st.session_state:
-    st.session_state.lista_materiais_eletricos = []
+# Inicialização garantida de todas as variáveis para evitar KeyError e AttributeError
+if "lista_materiais_civil" not in st.session_state: st.session_state.lista_materiais_civil = []
+if "lista_materiais_eletricos" not in st.session_state: st.session_state.lista_materiais_eletricos = []
 
 if "db_sync" not in st.session_state:
     st.session_state.funcionarios = carregar_dados_permanentes("funcionarios", [
@@ -69,7 +67,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True
     )
-    st.write("### 👥 Gestão de Equipe Técnico")
+    st.write("### 👥 Gestão de Equipe Técnica")
     with st.form("form_func", clear_on_submit=True):
         f_nome = st.text_input("Nome do Colaborador:")
         f_func = st.selectbox("Função:", ["Responsável Técnico", "Eletricista Instalador", "Mestre de Obras", "Projetista", "Técnico em Segurança Eletrônica"])
@@ -77,48 +75,69 @@ with st.sidebar:
         f_resp = st.checkbox("Definir como Responsável pelo Projeto?")
         if st.form_submit_button("Cadastrar Funcionário"):
             if f_nome and f_reg:
-                # Correção do cálculo do ID incremental
                 base_ids = [f["id"] for f in st.session_state.funcionarios] if st.session_state.funcionarios else [0]
                 novo_id = max(base_ids) + 1
                 st.session_state.funcionarios.append({"id": novo_id, "Nome": f_nome, "Função": f_func, "CREA_RE": f_reg, "Responsavel": f_resp})
                 salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
-                st.success("Funcionário Cadastrado com Sucesso!")
+                st.success("Funcionário Cadastrado!")
                 st.rerun()
+
     st.write("📋 **Lista de Colaboradores e Responsabilidade:**")
     if st.session_state.funcionarios:
         for idx, f in enumerate(list(st.session_state.funcionarios)):
             c_label = "⭐ RESPONSÁVEL" if f["Responsavel"] else "Colaborador"
             col_f1, col_f2 = st.columns([4, 1])
-            with col_f1:
-                st.write(f"**{f['Nome']}** ({f['Função']}) - {c_label}")
+            with col_f1: st.write(f"**{f['Nome']}** ({f['Função']}) - {c_label}")
             with col_f2:
                 if st.button("❌", key=f"del_f_{f['id']}_{idx}"):
                     st.session_state.funcionarios.pop(idx)
                     salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                     st.rerun()
-    else:
-        st.info("Nenhum funcionário cadastrado.")
-
 st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP Corporativo Base SQLite: Memorial de Engenharia Elétrica, Alvenaria e Segurança")
+st.subheader("ERP Corporativo: Memorial de Engenharia, Dimensionamento CAD e Segurança Eletrônica")
 st.markdown("---")
+
 st.write("### 👤 Cadastro e Homologação do Cliente")
-cliente_nome = st.text_input("Nome Completo do Cliente:", value=carregar_dados_permanentes("cli_nome", "Condomínio Residential Bella Vista"))
-cliente_endereco = st.text_input("Endereço da Obra:", value=carregar_dados_permanentes("cli_end", "Av. das Palmeiras, nº 450 - Lote 12"))
-cliente_cidade = st.text_input("Cidade / UF:", value=carregar_dados_permanentes("cli_cid", "Belo Horizonte / MG"))
+col_cl1, col_cl2, col_cl3 = st.columns(3)
+with col_cl1: cliente_nome = st.text_input("Nome Completo do Cliente:", value=carregar_dados_permanentes("cli_nome", "Condomínio Residencial Bella Vista"))
+with col_cl2: cliente_endereco = st.text_input("Endereço da Obra:", value=carregar_dados_permanentes("cli_end", "Av. das Palmeiras, nº 450 - Lote 12"))
+with col_cl3: cliente_cidade = st.text_input("Cidade / UF:", value=carregar_dados_permanentes("cli_cid", "Belo Horizonte / MG"))
 
 salvar_dados_permanentes("cli_nome", cliente_nome)
 salvar_dados_permanentes("cli_end", cliente_endereco)
 salvar_dados_permanentes("cli_cid", cliente_cidade)
 
+# MAPEAMENTO COMPLETO DE TODAS AS PRINCIPAIS CONCESSIONÁRIAS DO BRASIL POR ESTADO
 CONCESSIONARIAS = {
-    "CEMIG (MG)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
-    "ENEL (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
-    "ENEL (RJ)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001"},
-    "CPFL Paulista (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
-    "LIGHT (RJ)": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT"}
+    "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1"},
+    "ENEL SP (SP) - CNC-OM-BR-24": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001"},
+    "ENEL RJ (RJ) - CNC-OM-BR-24": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001"},
+    "ENEL CE (CE) - NT-001": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT"},
+    "CPFL Paulista (SP) - GED-13": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
+    "CPFL Piratininga/Santa Cruz (SP)" : {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13"},
+    "EDP SP (SP) - DIT-24": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "DIT-24"},
+    "EDP ES (ES) - DIT-24": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIT-24"},
+    "COPEL (PR) - NTC 901100": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100"},
+    "CELESC (SC) - N-321.0001": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001"},
+    "EQUATORIAL MA (MA) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
+    "EQUATORIAL PA (PA) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
+    "EQUATORIAL PI (PI) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
+    "EQUATORIAL AL (AL) - NT-01": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ"},
+    "EQUATORIAL GO (GO) - NT-01": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "NT-01.EQ"},
+    "EQUATORIAL RS (RS) - NT-01": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NT-01.EQ"},
+    "NEOENERGIA COELBA (BA)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "NEOENERGIA PERNAMBUCO (PE)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "NEOENERGIA COSERN (RN)": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "NEOENERGIA BRASÍLIA (DF)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001"},
+    "ENERGISA MG/RIO (MG/RJ)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-03.EN"},
+    "ENERGISA MT (MT) - NT-03": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN"},
+    "ENERGISA MS (MS) - NT-03": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN"},
+    "ENERGISA TO (TO) - NT-03": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-03.EN"},
+    "ENERGISA RO/AC (RO/AC)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-03.EN"},
+    "AMAZONAS ENERGIA (AM)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-AM-01"},
+    "RORAIMA ENERGIA (RR)": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-RR-01"}
 }
-st.markdown("---")
 def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
     ib = potencia / (tensao * fp)
@@ -145,8 +164,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
 
-    # Correção da lista de disjuntores para evitar quebras de loop
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -180,7 +198,6 @@ with tab_civil:
             ]
             st.rerun()
     else:
-        st.write("#### 🏠 Lançamento de Ambientes da Prancha Customizada")
         cc1, cc2, cc3 = st.columns(3)
         with cc1: nome_c = st.text_input("Nome do Cômodo:")
         with cc2: comp_c = st.number_input("Comprimento (m):", value=4.0)
@@ -207,7 +224,7 @@ with tab_civil:
 with tab_eletrica:
     st.write("### 🎛️ Modos de Cálculo do Sistema de Cabeamento e Proteção")
     modo_eletrico = st.radio("Escolha o modo de lançamento elétrico:", ["Fazer o cálculo da casa toda (Planta Modelo Otimizada)", "Lançar circuitos separados (Cálculo Individual Automático)"], horizontal=True)
-    concessionaria_sel = st.selectbox("🔌 Escolha a Distribuidora:", list(CONCESSIONARIAS.keys()))
+    concessionaria_sel = st.selectbox("🔌 Escolha a Distribuidora de Energia Elétrica:", list(CONCESSIONARIAS.keys()))
     dados_c = CONCESSIONARIAS[concessionaria_sel]
     
     if modo_eletrico == "Fazer o cálculo da casa toda (Planta Modelo Otimizada)":
@@ -244,15 +261,29 @@ with tab_eletrica:
     if st.session_state.lista_circuitos_calc:
         st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
 def def_recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad, circuitos_list):
+    # Retorna toda a lista de eletrodutos, cabos brutos e caixas de embutir demandados
     materiais = [
-        {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC Flexível Corrugado 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"}
+        {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC Flexível Corrugado 3/4 (Rolo 50m)", "Quantidade": max(1, math.ceil(area_ref * 1.8 / 50.0)), "Unidade": "rl"},
+        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Embutir Plástica 4x2", "Quantidade": max(4, math.ceil(area_ref * 0.45)), "Unidade": "un"},
+        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 1.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 1.5 / 100.0)), "Unidade": "rl"},
+        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 2.5 mm² (Rolo 100m)", "Quantidade": max(1, math.ceil(area_ref * 2.8 / 100.0)), "Unidade": "rl"}
     ]
     st.session_state.lista_materiais_eletricos = materiais
 
 try: area_obra_ref = area_obra
 except: area_obra_ref = 70.0
 
-tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
+pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc)
+if pot_total_sistema <= dados_c["limite_mono"]:
+    tipo_entrada, cabo_padrao, dj_padrao = "Monofásico", "10.0 mm²", "40 A"
+    detalhe_caixa = "Caixa Tipo 'E' ou 'A'"
+elif pot_total_sistema <= dados_c["limite_bi"]:
+    tipo_entrada, cabo_padrao, dj_padrao = "Bifásico", "16.0 mm²", "63 A"
+    detalhe_caixa = "Caixa Tipo 'F' ou 'B'"
+else:
+    tipo_entrada, cabo_padrao, dj_padrao = "Trifásico", "25.0 mm²", "80 A"
+    detalhe_caixa = "Caixa Tipo 'H' ou 'C'"
+
 def_recalcular_materials = def_recalcular_materiais_brutos_eletricos(area_obra_ref, tipo_entrada, dj_padrao, st.session_state.lista_circuitos_calc)
 
 with tab_seguranca:
@@ -271,7 +302,9 @@ with tab_seguranca:
         {"Componente Técnico": "Câmera CFTV IP Bullet 2MP Full HD IP67", "Quantidade": n_cameras, "Unidade": "un"},
         {"Componente Técnico": "Gravador Digital de Vídeo NVR 8 Canais Ultra HD", "Quantidade": 1 if n_cameras <= 8 else 2, "Unidade": "un"},
         {"Componente Técnico": "Sensor Infravermelho Passivo (IVP) com Suporte", "Quantidade": n_sensores, "Unidade": "un"},
-        {"Componente Técnico": "Cabo de Rede Blindado UTP Cat6 Puro Cobre", "Quantidade": m_cabo_rede, "Unidade": "m"}
+        {"Componente Técnico": "Cabo de Rede Blindado UTP Cat6 Puro Cobre", "Quantidade": m_cabo_rede, "Unidade": "m"},
+        {"Componente Técnico": "HD Seagate SkyHawk 2TB (Gravação Industrial 24/7)", "Quantidade": 1, "Unidade": "un"},
+        {"Componente Técnico": "Central de Alarme Monitorável Cloud com Teclado", "Quantidade": 1, "Unidade": "un"}
     ]
     st.dataframe(pd.DataFrame(seg_data), use_container_width=True)
 def gerar_pdf_completo_obra():
@@ -300,6 +333,18 @@ def gerar_pdf_completo_obra():
     func_txt = " | ".join(responsaveis_projeto) if responsaveis_projeto else "Nenhum assinado"
     elementos.append(Paragraph(f"<b>Responsáveis Técnicos pelo Projeto:</b> {func_txt}", estilo_celula_esq))
 
+    elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado - Regulamentação Técnica ({concessionaria_sel})</b>", estilo_sub))
+    dados_padrao_pdf = [
+        [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Especificação Conforme Norma Técnica Vigente</b>", estilo_celula_esq)],
+        [Paragraph("Norma Técnica Base da Concessionária", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
+        [Paragraph("Tipo de Fornecimento / Entrada", estilo_celula), Paragraph(tipo_entrada, estilo_celula_esq)],
+        [Paragraph("Cabo do Ramal Geral (Cobre)", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
+        [Paragraph("Disjuntor Geral da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)],
+        [Paragraph("Modelo de Caixa Sugerido", estilo_celula), Paragraph(detalhe_caixa, estilo_celula_esq)]
+    ]
+    t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 500.0])
+    t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
+    elementos.append(t_pad)
     if st.session_state.lista_circuitos_calc:
         elementos.append(PageBreak())
         elementos.append(Paragraph("1. Mapeamento Geral de Cargas e Distribuição por Fase", estilo_sub))
@@ -324,6 +369,7 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
+        # MUDANÇA DEMANDADA: Centralizar todas estas informações no meio mesclado da prancha técnica
         texto_centralizado_modelo = f"<b>Potência Instalada Total: {pot_total_calc} W | R: {tot_r}VA | S: {tot_s}VA</b>"
         dados_qdc_pdf.append([Paragraph(texto_centralizado_modelo, estilo_celula)] + [""] * 11)
         
@@ -345,8 +391,18 @@ def gerar_pdf_completo_obra():
         t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
 
+    if st.session_state.lista_materiais_eletricos:
+        elementos.append(PageBreak())
+        elementos.append(Paragraph("3. Lote de Componentes Elétricos Brutos e Infraestrutura Terminais", estilo_sub))
+        dados_el_pdf = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
+        for mat_e in st.session_state.lista_materiais_eletricos:
+            dados_el_pdf.append([Paragraph(mat_e["Etapa"], estilo_celula), Paragraph(mat_e["Material"], estilo_celula_esq), Paragraph(str(mat_e["Quantidade"]), estilo_celula), Paragraph(mat_e["Unidade"], estilo_celula)])
+        t_el = Table(dados_el_pdf, colWidths=[120.0, 400.0, 140.0, 80.0])
+        t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
+        elementos.append(t_el)
+
     elementos.append(PageBreak())
-    elementos.append(Paragraph("3. Lote de Ativos e Segurança Eletrônica", estilo_sub))
+    elementos.append(Paragraph("4. Lote de Ativos e Segurança Eletrônica Monitorável", estilo_sub))
     dados_seg_pdf = [[Paragraph("<b>Sistema</b>", estilo_celula), Paragraph("<b>Componente</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
     for row_s in seg_data:
         dados_seg_pdf.append([Paragraph("Segurança Eletrônica", estilo_celula), Paragraph(row_s["Componente Técnico"], estilo_celula_esq), Paragraph(str(row_s["Quantidade"]), estilo_celula), Paragraph(row_s["Unidade"], estilo_celula)])
@@ -354,6 +410,17 @@ def gerar_pdf_completo_obra():
     t_seg.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_seg)
 
+    elementos.append(PageBreak())
+    elementos.append(Paragraph("5. Diretrizes Técnicas Regulamentares", estilo_sub))
+    caviso = [
+        Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
+        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
+        Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
+    ]
+    t_av = Table([[caviso]], colWidths=[740.0])
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
+    elementos.append(t_av)
+    
     doc.build(elementos)
     buffer.seek(0)
     return buffer
@@ -361,4 +428,4 @@ def gerar_pdf_completo_obra():
 with tab_pdf:
     st.write("### 🖨️ Central de Emissão")
     if st.session_state.lista_circuitos_calc:
-        st.download_button(label="📥 Baixar Memorial Técnico Consolidado com Dados do Cliente e Segurança (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
+        st.download_button(label="📥 Baixar Memorial Técnico Consolidado Completo (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_completo.pdf", mime="application/pdf", key="btn_pdf_real")
