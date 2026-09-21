@@ -42,10 +42,10 @@ with st.sidebar:
                 st.session_state.funcionarios.append({"Nome": f_nome, "Função": f_func, "CREA/RE": f_reg})
                 st.success("Funcionário Cadastrado!")
                 st.rerun()
+                
     st.write("---")
     st.write("📋 **Equipe Alocada:**")
     st.dataframe(pd.DataFrame(st.session_state.funcionarios), use_container_width=True)
-
 st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("ERP Corporativo: Memorial Integrado de Engenharia, QDC e Alvenaria")
 st.markdown("---")
@@ -81,6 +81,7 @@ def recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad):
         contagem_dj[chave_dj] = contagem_dj.get(chave_dj, 0) + 1
     for dj_nome, qtd in contagem_dj.items():
         materiais.append({"Etapa": "Dispositivos QDC", "Material": dj_nome, "Quantidade": qtd, "Unidade": "un"})
+    
     n_fases = 1 if tipo_ent == "Monofásico" else (2 if tipo_ent == "Bifásico" else 3)
     espaco_ocupado_din = polos_circuitos + n_fases + (2 if n_fases == 1 else 4) + n_fases
     reserva = 2 if polos_circuitos <= 6 else (3 if polos_circuitos <= 12 else 4)
@@ -175,6 +176,7 @@ with tab_civil:
         with c_civ3:
             tipo_tijolo = st.selectbox("Tipo de Alvenaria:", ["Tijolo Cerâmico Baiano", "Bloco de Concreto"], key="sb_tijolo_civil")
             espessura_contrapiso = st.number_input("Espessura do Contrapiso (cm):", min_value=3.0, value=5.0, step=0.5, key="ni_contrapiso_civil")
+
         if st.button("📊 Processar Cubagem Global", key="btn_calcular_civil"):
             st.session_state.lista_materiais_civil = []
             vol_sapatas = qtd_sapatas * 0.4
@@ -234,13 +236,12 @@ with tab_civil:
                     {"Etapa": "Esquadrias (Prancha)", "Material": "Kit Porta/Janela com Espuma Expansiva", "Quantidade": int(total_esquadrias), "Unidade": "un"},
                     {"Etapa": "Acabamento (Prancha)", "Material": "Revestimento Cerâmico de Piso", "Quantidade": round(area_total_acumulada * 1.1, 1), "Unidade": "m²"}
                 ])
-                area_obra = area_total_acumulada
                 st.success("Levantamento estrutural por cômodo gerado!")
                 st.rerun()
+                
     if st.session_state.lista_materiais_civil:
         st.write("#### 🧱 Insumos Totais da Construção Civil Levantados")
         st.dataframe(pd.DataFrame(st.session_state.lista_materiais_civil), use_container_width=True)
-
 with tab_eletrica:
     st.write("### 🎛️ Mapeamento Base do Quadro de Distribuição")
     col_el1, col_el2 = st.columns(2)
@@ -258,6 +259,7 @@ with tab_eletrica:
                 {"Circuito": "5", "Descrição": "TUE - Chuveiro Master", "Carga": 7800, "VA": 7800, "Ilum": "0", "Tug100": "0", "Tug600": "0", "Tug1000": "0", "PotEsp": "7800", "Demanda": "80,00%", "FP": "100,00%", "Ib (A)": 35.45, "Disjuntor": "40A", "Curva": "B", "Cabo": "6.0 mm²", "Fase": "RS", "Tensão": 220, "R_val": "3900", "S_val": "3900", "T_val": "0", "Tipo": "Bifásico"}
             ]
             st.rerun()
+
     if st.session_state.lista_circuitos:
         st.dataframe(pd.DataFrame(st.session_state.lista_circuitos), use_container_width=True)
 
@@ -304,7 +306,9 @@ def gerar_pdf_completo_obra():
         [Paragraph("Disjuntor Geral", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)],
         [Paragraph("Modelo de Caixa", estilo_celula), Paragraph(detalhe_caixa, estilo_celula_esq)]
     ]
-    t_pad = Table(dados_padrao_pdf, colWidths=)
+    
+    # SOLUÇÃO DO PRINT: Valores numéricos fixados em float (2 colunas somando 740)
+    t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 500.0])
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_pad)
 
@@ -326,8 +330,14 @@ def gerar_pdf_completo_obra():
         tot_r = sum(int(c['R_val']) for c in st.session_state.lista_circuitos)
         tot_s = sum(int(c['S_val']) for c in st.session_state.lista_circuitos)
         dados_qdc_pdf.append([Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph(f"<b>Potência Instalada Total: {pot_total} W</b>", estilo_celula), "", "", "", "", "", "", "", "", "", "", Paragraph(f"<b>{tot_r}VA</b>", estilo_celula), Paragraph(f"<b>{tot_s}VA</b>", estilo_celula)])
-        t_qdc = Table(dados_qdc_pdf, colWidths=)
-        t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('SPAN', (1,-1), (11,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 2), ('ALIGN', (0,-1), (-1,-1), 'CENTER')]))
+        
+        # SOLUÇÃO DO PRINT: Valores numéricos fixados em float (14 colunas somando 742)
+        t_qdc = Table(dados_qdc_pdf, colWidths=[32.0, 180.0, 42.0, 42.0, 42.0, 42.0, 42.0, 42.0, 40.0, 45.0, 35.0, 42.0, 58.0, 58.0])
+        t_qdc.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
+            ('SPAN', (1,-1), (11,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 2),
+            ('ALIGN', (0,-1), (-1,-1), 'CENTER')
+        ]))
         elementos.append(t_qdc)
     if st.session_state.lista_materiais_civil:
         elementos.append(PageBreak())
@@ -335,7 +345,9 @@ def gerar_pdf_completo_obra():
         dados_civil = [[Paragraph("<b>Etapa Civil</b>", estilo_celula), Paragraph("<b>Material Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
         for mat in st.session_state.lista_materiais_civil:
             dados_civil.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
-        t_civ = Table(dados_civil, colWidths=)
+        
+        # SOLUÇÃO DO PRINT: Valores numéricos fixados em float (4 colunas somando 740)
+        t_civ = Table(dados_civil, colWidths=[120.0, 400.0, 140.0, 80.0])
         t_civ.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#475569')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_civ)
         
@@ -345,7 +357,9 @@ def gerar_pdf_completo_obra():
         dados_el = [[Paragraph("<b>Etapa Elétrica</b>", estilo_celula), Paragraph("<b>Componente Detalhado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
         for m in st.session_state.lista_materiais_eletricos:
             dados_el.append([Paragraph(m["Etapa"], estilo_celula), Paragraph(m["Material"], estilo_celula_esq), Paragraph(str(m["Quantidade"]), estilo_celula), Paragraph(m["Unidade"], estilo_celula)])
-        t_el = Table(dados_el, colWidths=)
+        
+        # SOLUÇÃO DO PRINT: Valores numéricos fixados em float (4 colunas somando 740)
+        t_el = Table(dados_el, colWidths=[120.0, 400.0, 140.0, 80.0])
         t_el.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_el)
 
@@ -373,7 +387,7 @@ def gerar_pdf_completo_obra():
         Paragraph("• <b>Área de Segurança:</b> Mantenha a frente deste quadro totalmente desobstruída. Nunca guarde vassouras, caixas ou objetos que dificultem o acesso rápido.", estilo_aviso_corpo),
         Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
     ]
-    t_av = Table([[caviso]], colWidths=)
+    t_av = Table([[caviso]], colWidths=[740.0])
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
     elementos.append(t_av)
     
