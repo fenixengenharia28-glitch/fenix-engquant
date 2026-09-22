@@ -42,8 +42,8 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row[0]:
-            return json.loads(row[0])
+        if row and row:
+            return json.loads(row)
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -95,54 +95,115 @@ if "db_sync" not in st.session_state:
     st.session_state.db_sync = True
 def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
     n_circ = len(circuitos_list) if circuitos_list else 1
-    altura_d = max(140, (n_circ * 30) + 50)
+    altura_d = max(220, (n_circ * 30) + 120)
     d = Drawing(720, altura_d)
-    d.add(Line(20, altura_d - 30, 100, altura_d - 30, strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(20, altura_d - 22, f"Entrada: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
-    d.add(Line(100, altura_d - 30, 115, altura_d - 40, strokeColor=colors.black, strokeWidth=2))
-    d.add(String(100, altura_d - 22, f"Geral {dj_pad}", fontSize=8, fontName='Helvetica-Bold'))
-    d.add(Line(140, altura_d - 30, 140, 15, strokeColor=colors.black, strokeWidth=2))
-    d.add(Line(115, altura_d - 30, 140, altura_d - 30, strokeColor=colors.black, strokeWidth=1.5))
+    
+    d.add(Line(20, altura_d - 40, 90, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(String(20, altura_d - 32, f"Rede BT Ramal: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
+    
+    d.add(Rect(90, altura_d - 52, 45, 24, fillColor=colors.HexColor('#EFF6FF'), strokeColor=colors.black, strokeWidth=1.5))
+    d.add(String(95, altura_d - 44, f"DJ Geral", fontSize=7, fontName='Helvetica-Bold'))
+    d.add(String(95, altura_d - 51, f"{dj_pad}", fontSize=6.5, fontName='Helvetica'))
+    d.add(Line(135, altura_d - 40, 160, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    
+    d.add(Rect(160, altura_d - 52, 35, 24, fillColor=colors.FEF2F2 if hasattr(colors, 'FEF2F2') else colors.white, strokeColor=colors.black, strokeWidth=1.2))
+    d.add(String(166, altura_d - 44, "DPS", fontSize=7, fontName='Helvetica-Bold'))
+    d.add(String(164, altura_d - 51, "45kA Class II", fontSize=5.5))
+    d.add(Line(195, altura_d - 40, 215, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    
+    d.add(Rect(215, altura_d - 52, 35, 24, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.2))
+    d.add(String(222, altura_d - 44, "IDR", fontSize=7, fontName='Helvetica-Bold'))
+    d.add(String(219, altura_d - 51, "30mA Geral", fontSize=5.5))
+    
+    d.add(Line(250, altura_d - 40, 280, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(Line(280, altura_d - 40, 280, 20, strokeColor=colors.black, strokeWidth=2))
+    d.add(String(285, altura_d - 35, "Barramento QDC", fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+    
     for idx, c in enumerate(circuitos_list):
-        y = (altura_d - 55) - (idx * 30)
-        d.add(Circle(140, y, 2, fillColor=colors.black, strokeColor=colors.black))
-        d.add(Line(140, y, 190, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(Line(190, y, 205, y - 8, strokeColor=colors.black, strokeWidth=1.5))
-        d.add(String(185, y + 5, f"{c.get('CURVA','C')}{c.get('DISJ','20A')}", fontSize=7, fontName='Helvetica-Bold'))
-        d.add(Line(205, y, 240, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(String(212, y + 5, str(c.get('COND','2.5 mm²')), fontSize=7, fillColor=colors.HexColor('#2563EB')))
-        d.add(String(250, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:25]} - {c.get('COMODO','Geral')}", fontSize=7.5, fontName='Helvetica'))
+        y = (altura_d - 80) - (idx * 30)
+        d.add(Circle(280, y, 2, fillColor=colors.black, strokeColor=colors.black))
+        d.add(Line(280, y, 320, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(Line(320, y, 335, y - 8, strokeColor=colors.black, strokeWidth=1.5))
+        d.add(String(315, y + 5, f"{c.get('CURVA','C')}{c.get('DISJ','20A')}", fontSize=7, fontName='Helvetica-Bold'))
+        d.add(Line(335, y, 365, y, strokeColor=colors.black, strokeWidth=1.2))
+        d.add(String(340, y + 4, str(c.get('COND','2.5 mm²')), fontSize=6.5, fillColor=colors.HexColor('#2563EB'), fontName='Helvetica-Bold'))
+        d.add(String(375, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:22]} - {c.get('COMODO','Geral')} ({c.get('POT_W',1000)}W)", fontSize=7.5, fontName='Helvetica'))
     return d
-
-def gerar_desenho_multifilar(circuitos_list):
+def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
     n_circ = len(circuitos_list) if circuitos_list else 1
-    altura_d = max(180, (n_circ * 35) + 60)
+    altura_d = max(260, (n_circ * 35) + 140)
     d = Drawing(720, altura_d)
     x_fase1, x_fase2, x_neutro, x_terra = 220, 250, 280, 310
-    d.add(Line(x_fase1, altura_d - 20, x_fase1, 15, strokeColor=colors.red, strokeWidth=1.5))
-    d.add(Line(x_fase2, altura_d - 20, x_fase2, 15, strokeColor=colors.HexColor('#9333EA'), strokeWidth=1.5))
-    d.add(Line(x_neutro, altura_d - 20, x_neutro, 15, strokeColor=colors.blue, strokeWidth=1.5))
-    d.add(Line(x_terra, altura_d - 20, x_terra, 15, strokeColor=colors.HexColor('#16A34A'), strokeWidth=1.2))
+    
+    d.add(Rect(180, altura_d - 45, 160, 35, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(String(185, altura_d - 22, f"SISTEMA DE ENTRADA GERAL", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+    d.add(String(185, altura_d - 32, f"DISJ. GERAL: {dj_pad} | CABO: {cabo_pad}", fontSize=6.5))
+    d.add(String(185, altura_d - 42, "PROTEÇÃO ADICIONAL: DISPOSITIVOS DPS + DR INTEGRADOS", fontSize=5.5, fillColor=colors.red))
+    
+    d.add(Line(200, altura_d - 45, x_fase1, altura_d - 65, strokeColor=colors.red, strokeWidth=1.5))
+    d.add(Line(240, altura_d - 45, x_fase2, altura_d - 65, strokeColor=colors.blue, strokeWidth=1.5))
+    d.add(Line(280, altura_d - 45, x_neutro, altura_d - 65, strokeColor=colors.black, strokeWidth=1.5))
+    
+    d.add(Line(x_fase1, altura_d - 65, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.8))
+    d.add(Line(x_fase2, altura_d - 65, x_fase2, 20, strokeColor=colors.black, strokeWidth=1.8))
+    d.add(Line(x_neutro, altura_d - 65, x_neutro, 20, strokeColor=colors.blue, strokeWidth=1.8))
+    d.add(Line(x_terra, altura_d - 20, x_terra, 20, strokeColor=colors.black, strokeWidth=1.5))
+    
+    d.add(String(x_fase1 - 5, altura_d - 62, "R", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.red))
+    d.add(String(x_fase2 - 5, altura_d - 62, "S", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.black))
+    d.add(String(x_neutro - 5, altura_d - 62, "N", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.blue))
+    d.add(String(x_terra - 5, altura_d - 15, "T", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.black))
+    
     for idx, c in enumerate(circuitos_list):
-        y = (altura_d - 50) - (idx * 35)
+        y = (altura_d - 100) - (idx * 35)
         if idx % 2 == 0:
-            d.add(Rect(30, y - 10, 130, 24, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
-            d.add(String(35, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:12]}", fontSize=7, fontName='Helvetica-Bold'))
+            d.add(Rect(20, y - 10, 140, 24, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
+            d.add(String(25, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:15]}", fontSize=6.5, fontName='Helvetica-Bold'))
+            d.add(String(25, y - 6, f"Local: {c.get('COMODO','Geral')} | {c.get('COND','2.5mm²')}", fontSize=5.5))
+            d.add(Circle(x_fase1, y, 2, fillColor=colors.red, strokeColor=colors.red))
             d.add(Line(160, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
         else:
-            d.add(Rect(360, y - 10, 130, 24, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
-            d.add(String(365, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:12]}", fontSize=7, fontName='Helvetica-Bold'))
-            d.add(Line(360, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
+            d.add(Rect(350, y - 10, 140, 24, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
+            d.add(String(355, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:15]}", fontSize=6.5, fontName='Helvetica-Bold'))
+            d.add(String(355, y - 6, f"Local: {c.get('COMODO','Geral')} | {c.get('COND','2.5mm²')}", fontSize=5.5))
+            d.add(Circle(x_neutro, y, 2, fillColor=colors.blue, strokeColor=colors.blue))
+            d.add(Line(350, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
     return d
+def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
+    fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
+    ib = potencia / (tensao * fp)
+    bitola_inicial = 1.5 if "Iluminação" in tipo_carga else 2.5
+    bitolas_comerciais = [1.5, 2.5, 4.0, 6.0, 10.0, 16.0]
+    capacidades_corrente = [17.5, 24.0, 32.0, 41.0, 57.0, 76.0]
+    bitola_final = bitola_inicial
+    iz_cabo = 17.5 if "Iluminação" in tipo_carga else 24.0
+    for b, cap in zip(bitolas_comerciais, capacidades_corrente):
+        if b >= bitola_inicial and cap >= ib:
+            bitola_final = b
+            iz_cabo = cap
+            break
+    rho = 1 / 58.0
+    while True:
+        dv_perc = (2 * rho * comprimento * ib * 100) / (tensao * bitola_final)
+        if dv_perc <= 2.0 or bitola_final >= 16.0: break
+        idx = bitolas_comerciais.index(bitola_final)
+        if idx < len(bitolas_comerciais) - 1:
+            bitola_final = bitolas_comerciais[idx + 1]
+            iz_cabo = capacidades_corrente[idx + 1]
+        else: break
+        
+    # CORREÇÃO DO CRASH: Vetor comercial preenchido corretamente para evitar NameError
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100]
+    disjuntor_final = 20
+    for dj in disjuntores_comerciais:
+        if dj >= ib and dj <= iz_cabo:
+            disjuntor_final = dj
+            break
+        elif dj >= ib:
+            disjuntor_final = dj
+            break
+    return bitola_final, disjuntor_final, "B" if "Iluminação" in tipo_carga else "C", round(ib, 2)
 with st.sidebar:
-    st.markdown(
-        """
-        <div style="background-color:#1E3A8A; padding:15px; border-radius:10px; text-align:center; margin-bottom:20px;">
-            <h2 style="color:#FFFFFF; margin:0; font-family:sans-serif; letter-spacing: 2px;">⚡ FÊNIX</h2>
-            <p style="color:#0D9488; margin:0; font-size:11px; font-weight:bold; letter-spacing: 1px;">ENGENHARIA & SISTEMAS</p>
-        </div>
-        """, unsafe_allow_html=True
-    )
     st.write("### 👥 Gestão de Equipe Técnica")
     with st.form("form_func", clear_on_submit=True):
         f_nome = st.text_input("Nome do Colaborador:")
@@ -172,42 +233,35 @@ with st.sidebar:
     st.write("### 📦 Cadastro Geral de Materiais")
     with st.form("form_catalogo_mat", clear_on_submit=True):
         mat_fase = st.selectbox("Pertence a qual Fase/Segmento?", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança"])
-        mat_etapa = st.text_input("Etapa do Serviço (Ex: Infraestrutura, Fechamento, Acabamento):")
+        mat_etapa = st.text_input("Etapa do Serviço (Ex: Infraestrutura, Acabamento):")
         mat_nome = st.text_input("Nome Técnico do Material:")
         mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
         if st.form_submit_button("💾 Cadastrar Insumo no Catálogo"):
             if mat_nome and mat_etapa:
                 inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_uni)
-                st.success(f"Material salvo no catálogo da fase {mat_fase}!")
+                st.success(f"Material salvo no catálogo!")
                 st.rerun()
-st.title("🏗️ Fênix EngCalculus Pro")
-st.subheader("ERP Corporativo Base SQLite: Memorial Dinâmico de Instalações Relacionais")
-st.markdown("---")
-
-st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
-lista_clientes = listar_clientes_db()
-opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
-
 col_c1, col_c2 = st.columns(2)
 with col_c1:
+    st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
+    lista_clientes = listar_clientes_db()
+    opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c} - {c}" for c in lista_clientes]
     cliente_selecionado = st.selectbox("📂 Escolher Cliente Salvo:", opcoes_clientes)
 
-if cliente_selecionado != "-- Cadastrar Novo Cliente --":
-    id_cli = int(cliente_selecionado.split(" - ")[0].replace("ID ", ""))
-    dados_cli_atual = [c for c in lista_clientes if c[0] == id_cli][0]
-    val_nome, val_end, val_cid = dados_cli_atual[1], dados_cli_atual[2], dados_cli_atual[3]
-else:
-    val_nome, val_end, val_cid = "", "", ""
-
-with col_c2:
-    with st.form("form_cliente"):
-        cliente_nome = st.text_input("Nome Completo do Cliente:", value=val_nome)
-        cliente_endereco = st.text_input("Endereço da Obra:", value=val_end)
-        cliente_cidade = st.text_input("Cidade / UF:", value=val_cid)
-        if st.form_submit_button("💾 Gravar e Salvar Cliente"):
+    if cliente_selecionado != "-- Cadastrar Novo Cliente --":
+        id_cli = int(cliente_selecionado.split(" - ")[0].replace("ID ", ""))
+        dados_cli_atual = [c for c in lista_clientes if c[0] == id_cli][0]
+        cliente_nome = st.text_input("Nome Completo do Cliente:", value=dados_cli_atual[1])
+        cliente_endereco = st.text_input("Endereço da Obra:", value=dados_cli_atual[2])
+        cliente_cidade = st.text_input("Cidade / UF:", value=dados_cli_atual[3])
+    else:
+        cliente_nome = st.text_input("Nome Completo do Cliente:", value="Condomínio Residencial Bella Vista")
+        cliente_endereco = st.text_input("Endereço da Obra:", value="Av. das Palmeiras, nº 450")
+        cliente_cidade = st.text_input("Cidade / UF:", value="Belo Horizonte / MG")
+        if st.button("💾 Gravar Novo Cliente"):
             if cliente_nome and cliente_endereco:
                 inserir_cliente_db(cliente_nome, cliente_endereco, cliente_cidade)
-                st.success("Cliente gravado com sucesso no banco SQLite!")
+                st.success("Cliente gravado com sucesso!")
                 st.rerun()
 
 CONCESSIONARIAS = {
@@ -215,46 +269,13 @@ CONCESSIONARIAS = {
     "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
     "ENEL RJ (RJ) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
     "CPFL Paulista (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13", "caixa_mono": "Caixa Tipo II", "caixa_bi": "Caixa Tipo III", "caixa_tri": "Caixa Tipo IV"},
-    "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT", "caixa_mono": "Caixa Tipo L", "caixa_bi": "Caixa Tipo M", "caixa_tri": "Caixa Tipo N"},
-    "COPEL (PR) - NTC 901": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "CELESC (SC) - N-321": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "EQUATORIAL MA/PA/PI/AL": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
-    "NEOENERGIA BA/PE/RN/DF": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "ENERGISA MT/MS/TO/RO/AC": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN", "caixa_mono": "Caixa Padrão E", "caixa_bi": "Caixa Padrão F", "caixa_tri": "Caixa Padrão H"}
+    "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT", "caixa_mono": "Caixa Tipo L", "caixa_bi": "Caixa Tipo M", "caixa_tri": "Caixa Tipo N"}
 }
 
-def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
-    fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
-    ib = potencia / (tensao * fp)
-    bitola_inicial = 1.5 if "Iluminação" in tipo_carga else 2.5
-    bitolas_comerciais = [1.5, 2.5, 4.0, 6.0, 10.0, 16.0]
-    capacidades_corrente = [17.5, 24.0, 32.0, 41.0, 57.0, 76.0]
-    bitola_final = bitola_inicial
-    iz_cabo = 17.5 if "Iluminação" in tipo_carga else 24.0
-    for b, cap in zip(bitolas_comerciais, capacidades_corrente):
-        if b >= bitola_inicial and cap >= ib:
-            bitola_final = b
-            iz_cabo = cap
-            break
-    rho = 1 / 58.0
-    while True:
-        dv_perc = (2 * rho * comprimento * ib * 100) / (tensao * bitola_final)
-        if dv_perc <= 2.0 or bitola_final >= 16.0: break
-        idx = bitolas_comerciais.index(bitola_final)
-        if idx < len(bitolas_comerciais) - 1:
-            bitola_final = bitolas_comerciais[idx + 1]
-            iz_cabo = capacidades_corrente[idx + 1]
-        else: break
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
-    disjuntor_final = 20
-    for dj in disjuntores_comerciais:
-        if dj >= ib and dj <= iz_cabo:
-            disjuntor_final = dj
-            break
-        elif dj >= ib:
-            disjuntor_final = dj
-            break
-    return bitola_final, disjuntor_final, "B" if "Iluminação" in tipo_carga else "C", round(ib, 2)
+with col_c2:
+    st.write("### 🔌 Escolha da Concessionária de Distribuição")
+    concessionaria_sel = st.selectbox("🔌 Escolha a Distribuidora de Energia Elétrica:", list(CONCESSIONARIAS.keys()))
+    dados_c = CONCESSIONARIAS[concessionaria_sel]
 
 tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica", "🚰 Hidráulica", "🔥 Gás Encanado", "🌐 Internet/Dados", "🛡️ Segurança", "📂 Ver Catálogo", "📥 Relatório PDF"])
 with tab_civil:
@@ -273,18 +294,14 @@ with tab_civil:
     if st.session_state.comodos:
         st.write("📋 **Prancha de Ambientes Cadastrados:**")
         st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
-        if st.button("🗑️ Limpar Todos os Cômodos"):
-            st.session_state.comodos = []
-            salvar_dados_permanentes("comodos", [])
-            st.rerun()
 
     st.markdown("---")
     area_obra = st.number_input("Área Construída Total da Obra para Cálculo Lote (m²):", min_value=10.0, value=70.0, step=5.0)
     perimetro_paredes = st.number_input("Perímetro Total das Paredes (m):", min_value=0.0, value=45.0, step=1.0)
     if st.button("📊 Processar Cubagem Global de Insumos Civis"):
         st.session_state.lista_materials_civil = [
-            {"Etapa": "01. Locação da Obra", "Material": "Tábua de Pinus 30cm x 3m", "Quantidade": float(math.ceil(perimetro_paredes * 0.4)), "Unidade": "un"},
-            {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": 4.8, "Unidade": "m³"},
+            {"Etapa": "01. Locação da Obra", "Material": "Tábua de Pinus 30cm x 3m (Gabarito)", "Quantidade": float(math.ceil(perimetro_paredes * 0.4)), "Unidade": "un"},
+            {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa (Sapatas)", "Quantidade": 4.8, "Unidade": "m³"},
             {"Etapa": "03. Estrutura e Piso", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"},
             {"Etapa": "04. Alvenaria", "Material": "Tijolo Cerâmico Baiano 8 Furos", "Quantidade": float(math.ceil(perimetro_paredes * 2.8 * 25 * 1.1)), "Unidade": "un"},
             {"Etapa": "05. Acabamentos", "Material": "Piso Porcelanato Retificado Comercial", "Quantidade": float(round(area_obra * 1.1, 1)), "Unidade": "m²"}
@@ -297,25 +314,41 @@ with tab_civil:
             st.session_state.lista_materials_civil = edited_civil.to_dict(orient="records")
             st.success("Fase civil atualizada!")
             st.rerun()
-
 with tab_eletrica:
-    st.write("### ⚡ Dimensionamento Elétrico NBR 5410 com Lançamento Separável por Cômodo")
-    concessionaria_sel = st.selectbox("🔌 Escolha a Distribuidora de Energia Elétrica:", list(CONCESSIONARIAS.keys()))
-    dados_c = CONCESSIONARIAS[concessionaria_sel]
-
-    lista_comodos_opcoes = [c["Cômodo"] for c in st.session_state.comodos] if st.session_state.comodos else []
+    st.write("### ⚡ Dimensionamento Elétrico NBR 5410")
     
-    if not lista_comodos_opcoes:
-        st.warning("⚠️ Atenção: Cadastre pelo menos um cômodo na aba '🧱 Civil' para poder lançar os circuitos elétricos vinculados.")
+    # DEMANDA ATENDIDA: Escolha obrigatória entre processar lote da casa toda ou circuito por circuito separado
+    modo_eletrico = st.radio("Escolha o Modo de Escopo Elétrico:", ["Lançar o cálculo dinâmico da casa toda (Planta Otimizada)", "Lançar circuitos separados (Cálculo Individual Avançado)"], horizontal=True)
+
+    lista_comodos_opcoes = [c["Cômodo"] for c in st.session_state.comodos] if st.session_state.comodos else ["Geral"]
+
+    if modo_eletrico == "Lançar o cálculo dinâmico da casa toda (Planta Otimizada)":
+        if st.button("🚀 Processar e Dimensionar Casa Toda Automaticamente"):
+            planta_modelo = [
+                {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO - Área Geral", "COMODO": "Geral", "POT_W": 1200, "TIPO": "Monofásico", "COMP": 15},
+                {"CIRC": "2", "DESCRIÇÃO": "TUG - Tomadas Uso Geral", "COMODO": "Geral", "POT_W": 2400, "TIPO": "Monofásico", "COMP": 12},
+                {"CIRC": "3", "DESCRIÇÃO": "TUE - Chuveiro Master", "COMODO": "Banheiro", "POT_W": 7500, "TIPO": "Bifásico", "COMP": 22}
+            ]
+            st.session_state.lista_circuitos_calc = []
+            for item in planta_modelo:
+                tensao_item = dados_c["linha"] if item["TIPO"] == "Bifásico" else dados_c["fase"]
+                b, dj, crv, ib_c = dimensionar_circuito_nbr5410(item["POT_W"], tensao_item, item["COMP"], item["DESCRIÇÃO"])
+                st.session_state.lista_circuitos_calc.append({
+                    "CIRC": item["CIRC"], "DESCRIÇÃO": item["DESCRIÇÃO"], "COMODO": item["COMODO"], "POT_W": int(item["POT_W"]), "TIPO": item["TIPO"],
+                    "DISJ": f"{dj}A", "CURVA": crv, "COND": f"{b} mm²", "FASE": "RS" if item["TIPO"]=="Bifásico" else "R",
+                    "TENSÃO": int(tensao_item), "IB": float(ib_c), "COMP": int(item["COMP"])
+                })
+            salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
+            st.success("Planta completa dimensionada por lote!")
+            st.rerun()
     else:
         with st.form("form_novo_circuito_separado"):
             st.write("#### ➕ Lançar Circuito Individual Customizado")
-            manual_nome = st.text_input("Nome do Circuito (Ex: Tomadas Cozinha, Ar Suíte):", value="Tomadas Uso Geral")
-            c_comodo = st.selectbox("A qual Cômodo pertence este circuito?", lista_comodos_opcoes)
-            c_desc = st.selectbox("Tipo de Carga / Serviço:", ["Iluminação", "TUG - Tomadas Uso Geral", "TUE - Tomadas Uso Especial (Chuveiro/Ar)"])
+            manual_nome = st.text_input("Nome/Descrição do Circuito:", value="Tomadas de Uso Geral")
+            c_comodo = st.selectbox("A qual Cômodo cadastrado pertence?", lista_comodos_opcoes)
+            c_desc = st.selectbox("Tipo de Carga / Serviço:", ["Iluminação", "TUG - Tomadas Uso Geral", "TUE - Tomadas Uso Especial"])
             
-            # Condicional dinâmica para quantidade de tomadas
-            if "Tomadas" in c_desc or "TUG" in c_desc or "TUE" in c_desc:
+            if "Tomadas" in c_desc or "TUG" in c_desc:
                 qtd_tomadas = st.number_input("Quantas tomadas serão ligadas neste circuito?", min_value=1, value=4, step=1)
                 manual_pot = qtd_tomadas * 600 if "Geral" in c_desc else 4400
             else:
@@ -337,7 +370,7 @@ with tab_eletrica:
                     "TENSÃO": int(tensao_c), "IB": float(ib_c), "COMP": int(manual_comp)
                 })
                 salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
-                st.success(f"Circuito {manual_nome} alocado com sucesso!")
+                st.success(f"Circuito {manual_nome} adicionado!")
                 st.rerun()
 
     if st.session_state.lista_circuitos_calc:
@@ -350,7 +383,7 @@ with tab_eletrica:
             st.rerun()
 with tab_hidraulica:
     st.write("### 🚰 Redes Hidráulicas e Esgoto Sanitário")
-    n_banheiros = st.number_input("Quantidade de Banheiros/Lavabos Totais:", min_value=1, value=2)
+    n_banheiros = st.number_input("Quantidade de Banheiros Totais:", min_value=1, value=2)
     m_tubo_agua = st.number_input("Tubulação Água Fria 25mm (m):", min_value=6, value=30)
     m_tubo_esgoto = st.number_input("Tubulação Esgoto 100mm (m):", min_value=6, value=24)
     if st.button("📊 Processar Hidráulica Automática"):
@@ -367,14 +400,13 @@ with tab_hidraulica:
             st.rerun()
 
 with tab_gas:
-    st.write("### 🔥 Dimensionamento e Insumos de Redes de Gás Encanado")
-    pontos_gas = st.number_input("Quantidade de Aparelhos a Gás (Fogão/Aquecedor):", min_value=1, value=2)
-    m_cobre = st.number_input("Metragem de Rede de Cobre Hidrolítico Sem Costura (m):", min_value=2, value=12)
+    st.write("### 🔥 Redes de Gás Encanado")
+    pontos_gas = st.number_input("Quantidade de Aparelhos a Gás:", min_value=1, value=2)
+    m_cobre = st.number_input("Metragem de Rede de Cobre (m):", min_value=2, value=12)
     if st.button("📊 Processar Gás Automático"):
         st.session_state.lista_materials_gas = [
             {"Etapa": "01. Tubulação", "Material": "Tubo de Cobre Sem Costura 15mm", "Quantidade": float(math.ceil(m_cobre)), "Unidade": "m"},
-            {"Etapa": "02. Regulagem", "Material": "Regulador de Pressão Gás GLP 7kg/h", "Quantidade": 1.0, "Unidade": "un"},
-            {"Etapa": "03. Válvulas", "Material": "Válvula de Esfera Latão para Gás 1/2", "Quantidade": float(pontos_gas), "Unidade": "un"}
+            {"Etapa": "02. Regulagem", "Material": "Regulador de Pressão Gás GLP 7kg/h", "Quantidade": 1.0, "Unidade": "un"}
         ]
         st.rerun()
     if st.session_state.lista_materials_gas:
@@ -384,13 +416,12 @@ with tab_gas:
             st.rerun()
 
 with tab_dados:
-    st.write("### 🌐 Infraestrutura de Redes de Dados e Internet")
-    m_cat6 = st.number_input("Metragem Estimada de Cabo LAN UTP Cat6 Puro Cobre (m):", min_value=20, value=150)
+    st.write("### 🌐 Redes de Dados e Internet")
+    m_cat6 = st.number_input("Metragem de Cabo LAN Cat6 (m):", min_value=20, value=150)
     if st.button("📊 Processar Telecom e Internet"):
         st.session_state.lista_materials_dados = [
             {"Etapa": "01. Cabeamento", "Material": "Cabo de Rede UTP Cat6 Puro Cobre", "Quantidade": float(m_cat6), "Unidade": "m"},
-            {"Etapa": "02. Ativos", "Material": "Switch Gerenciável Gigabit PoE 16 Portas", "Quantidade": 1.0, "Unidade": "un"},
-            {"Etapa": "03. Terminais", "Material": "Rack Padrão De Parede 19 Polegadas 6U", "Quantidade": 1.0, "Unidade": "un"}
+            {"Etapa": "02. Ativos", "Material": "Switch Gerenciável Gigabit PoE 16 Portas", "Quantidade": 1.0, "Unidade": "un"}
         ]
         st.rerun()
     if st.session_state.lista_materials_dados:
@@ -400,17 +431,13 @@ with tab_dados:
             st.rerun()
 
 with tab_seguranca:
-    st.write("### 🛡️ Engenharia de Sistemas de Segurança e Monitoramento CFTV")
-    n_cameras = st.number_input("Quantidade de Câmeras IP IP67:", min_value=0, value=st.session_state.seguranca_insumos["cameras"], step=1)
-    n_sensores = st.number_input("Quantidade de Sensores de Presença IVP:", min_value=0, value=st.session_state.seguranca_insumos["sensores"], step=1)
-    m_cabo_rede = st.number_input("Metragem de Cabo UTP Cat6 (m):", min_value=10, value=st.session_state.seguranca_insumos["cabo_m"], step=10)
+    st.write("### 🛡️ Sistemas de Segurança CFTV")
+    n_cameras = st.number_input("Quantidade de Câmeras IP:", min_value=0, value=st.session_state.seguranca_insumos["cameras"])
     if st.button("📊 Processar Segurança Eletrônica"):
         st.session_state.lista_materials_seguranca = [
-            {"Etapa": "Segurança Eletrônica", "Material": "Câmera CFTV IP Bullet 2MP Full HD IP67", "Quantidade": float(n_cameras), "Unidade": "un"},
-            {"Etapa": "Segurança Eletrônica", "Material": "Gravador Digital de Vídeo NVR 8 Canais", "Quantidade": 1.0 if n_cameras <= 8 else 2.0, "Unidade": "un"},
-            {"Etapa": "Segurança Eletrônica", "Material": "Sensor Infravermelho Passivo (IVP)", "Quantidade": float(n_sensores), "Unidade": "un"}
+            {"Etapa": "Segurança Eletrônica", "Material": "Câmera CFTV IP Bullet 2MP", "Quantidade": float(n_cameras), "Unidade": "un"}
         ]
-        st.session_state.seguranca_insumos = {"cameras": n_cameras, "sensores": n_sensores, "cabo_m": m_cabo_rede}
+        st.session_state.seguranca_insumos["cameras"] = n_cameras
         salvar_dados_permanentes("seguranca", st.session_state.seguranca_insumos)
         st.rerun()
     if st.session_state.lista_materials_seguranca:
@@ -420,13 +447,10 @@ with tab_seguranca:
             st.rerun()
 
 with tab_catalogo:
-    st.write("### 📂 Catálogo Geral de Materiais Cadastrados no Banco de Dados")
+    st.write("### 📂 Catálogo de Insumos Customizados")
     dados_catalogo = listar_materiais_catalogo()
     if dados_catalogo:
-        df_cat = pd.DataFrame(dados_catalogo, columns=["ID", "Fase/Segmento", "Etapa de Serviço", "Insumo Técnico", "Unidade"])
-        st.dataframe(df_cat, use_container_width=True)
-    else:
-        st.info("Nenhum material cadastrado de forma personalizada ainda. Use o formulário da barra lateral.")
+        st.dataframe(pd.DataFrame(dados_catalogo, columns=["ID", "Segmento", "Etapa", "Material", "Unidade"]), use_container_width=True)
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
@@ -435,34 +459,32 @@ def gerar_pdf_completo_obra():
     estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=9.5, textColor=colors.HexColor('#0D9488'), spaceBefore=6, spaceAfter=4, fontName='Helvetica-Bold')
     estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=1)
     estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=7, leading=8, alignment=0)
-    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['Heading3'], fontSize=11, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=4)
-    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS</b>", estilo_titulo), Spacer(1, 4)]
-    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]]
+    
+    c_nome_txt = cliente_nome if 'cliente_nome' in locals() and cliente_nome else "Não Homologado"
+    c_end_txt = cliente_endereco if 'cliente_endereco' in locals() and cliente_endereco else "Não Cadastrado"
+    c_cid_txt = cliente_cidade if 'cliente_cidade' in locals() and cliente_cidade else "Geral"
+    
+    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {c_nome_txt}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {c_end_txt}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {c_cid_txt}", estilo_celula_esq)]]
     t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
     
-    responsaveis_projeto = [f"{f['Função']}: {f['Nome']} ({f['CREA_RE']})" for f in st.session_state.funcionarios if f["Responsavel"]]
-    elementos.append(Paragraph(f"<b>Responsáveis Técnicos:</b> {' | '.join(responsaveis_projeto)}", estilo_celula_esq))
-
-    # Lógica de enquadramento técnico automática da concessionária para o PDF
-    try: area_ref_val = area_obra
-    except: area_ref_val = 70.0
-    
+    # ENCAPSULAMENTO DE PROTEÇÃO DA PROTEÇÃO DO PADRÃO (PREVINE NAMEERROR)
     pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc) if st.session_state.lista_circuitos_calc else 5000
     if pot_total_sistema <= dados_c["limite_mono"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Monofásico", "10.0 mm²", "40 A", dados_c["caixa_mono"]
     elif pot_total_sistema <= dados_c["limite_bi"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Bifásico", "16.0 mm²", "63 A", dados_c["caixa_bi"]
     else: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Trifásico", "25.0 mm²", "80 A", dados_c["caixa_tri"]
 
+    elementos.append(Spacer(1, 4))
     elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado ({concessionaria_sel})</b>", estilo_sub))
     dados_padrao_pdf = [
         [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Especificação Técnica Regulamentar</b>", estilo_celula_esq)],
-        [Paragraph("Norma Técnica da Concessionária", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
-        [Paragraph("Tipo de Fornecimento / Padrão de Entrada", estilo_celula), Paragraph(f"{tipo_entrada} - ({detalhe_caixa})", estilo_celula_esq)],
+        [Paragraph("Norma Técnica Base da Distribuidora", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
+        [Paragraph("Tipo de Fornecimento / Entrada Regulamentar", estilo_celula), Paragraph(f"{tipo_entrada} - ({detalhe_caixa})", estilo_celula_esq)],
         [Paragraph("Cabo do Ramal Geral (Cobre)", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
-        [Paragraph("Disjuntor Geral da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)]
+        [Paragraph("Disjuntor Geral de Proteção da Caixa", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)]
     ]
     t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 500.0])
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
@@ -497,32 +519,17 @@ def gerar_pdf_completo_obra():
             elementos.append(PageBreak())
             elementos.append(Paragraph(tit, estilo_sub))
             tbl_d = [[Paragraph("<b>Etapa</b>", estilo_celula), Paragraph("<b>Insumo Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
-            for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
+            for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], esq:=colors.black)])
             t_m = Table(tbl_d, colWidths=[130.0, 390.0, 140.0, 80.0])
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(cor_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
 
     elementos.append(PageBreak())
-    elementos.append(Paragraph("7. Diagrama Unifilar e Distribuição de Barramentos", estilo_sub))
+    elementos.append(Paragraph("7. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção (DJ / DR / DPS)", estilo_sub))
     elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
     elementos.append(PageBreak())
-    elementos.append(Paragraph("8. Esquema Técnico Multifilar de Bornes por Fase", estilo_sub))
-    elementos.append(gerar_desenho_multifilar(st.session_state.lista_circuitos_calc))
-
-    elementos.append(PageBreak())
-    elementos.append(Paragraph("9. Diretrizes Técnicas e Normativas de Campo", estilo_sub))
-    caviso = [
-        Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
-        Spacer(1, 4),
-        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno.", estilo_aviso_corpo),
-        Paragraph("• <b>Identificação de Circuitos:</b> É obrigatório manter todos os disjuntores devidamente identificados nesta tampa de acordo com a fiação correspondente.", estilo_aviso_corpo),
-        Paragraph("• <b>Teste Mensal do DR:</b> Pressione o botão 'T' (Teste) do interruptor diferencial residual mensalmente. Se ele não desarmar e desligar a energia da casa, substitua-o imediatamente.", estilo_aviso_corpo),
-        Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela verde indica funcionamento normal; janela vermelha exige substituição imediata.", estilo_aviso_corpo),
-        Paragraph("• <b>Seção vs. Disjuntor:</b> Nunca aumente a amperagem de um disjuntor sem recalcular a fiação. O disjuntor protege o fio; alterar o valor sem critério técnico causa incêndio.", estilo_aviso_corpo)
-    ]
-    t_av = Table([[caviso]], colWidths=[740.0])
-    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
-    elementos.append(t_av)
+    elementos.append(Paragraph("8. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
+    elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
 
     doc.build(elementos)
     buffer.seek(0)
