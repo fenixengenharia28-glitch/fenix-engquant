@@ -75,7 +75,6 @@ def listar_materiais_catalogo():
     rows = cursor.fetchall()
     conn.close()
     return rows
-
 if "db_sync_completo" not in st.session_state:
     st.session_state.lista_materials_civil = []
     st.session_state.lista_materials_eletricos = []
@@ -85,19 +84,16 @@ if "db_sync_completo" not in st.session_state:
     st.session_state.lista_materials_seguranca = []
     st.session_state.lista_materials_solar = []
     st.session_state.funcionarios = carregar_dados_permanentes("funcionarios", [
-        {"id": 1, "Nome": "Eng. Carlos Silva", "Função": "Responsável Técnico", "CREA_RE": "MG20231045", "Responsavel": True},
-        {"id": 2, "Nome": "Marcos Souza", "Função": "Eletricista Instalador", "CREA_RE": "RE-9942", "Responsavel": False}
+        {"id": 1, "Nome": "Eng. Carlos Silva", "Função": "Responsável Técnico", "CREA_RE": "MG20231045", "Responsavel": True}
     ])
     st.session_state.lista_circuitos_calc = carregar_dados_permanentes("circuitos", [])
     st.session_state.comodos = carregar_dados_permanentes("comodos", [])
     st.session_state.seguranca_insumos = carregar_dados_permanentes("seguranca", {"cameras": 4, "sensores": 3, "cabo_m": 100})
     st.session_state.db_sync_completo = True
+
 def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, fca=0.70, fct=1.0):
-    # Modelo MDA: Determinação de Fatores de Potência conforme tipologia da carga NBR 5410
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.80
     potencia_va = potencia / fp
-    
-    # Cálculo das correntes de projeto (Ib) e corrigida para agrupamento/temperatura (I'b)
     ib = potencia / (tensao * fp)
     ib_corrigida = ib / (fca * fct)
     
@@ -124,7 +120,7 @@ def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, 
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
         
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
+    disjuntores_comerciais = [6, 10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= (iz_cabo * fca * fct):
@@ -135,13 +131,8 @@ def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, 
             break
             
     return {
-        "BITOLA": bitola_final,
-        "DISJUNTORES": disjuntor_final,
-        "CURVA": "B" if "Iluminação" in tipo_carga else "C",
-        "IB": round(ib, 2),
-        "IB_CORR": round(ib_corrigida, 2),
-        "VA": round(potencia_va, 2),
-        "FP": fp,
+        "BITOLA": bitola_final, "DISJUNTORES": disjuntor_final, "CURVA": "B" if "Iluminação" in tipo_carga else "C",
+        "IB": round(ib, 2), "IB_CORR": round(ib_corrigida, 2), "VA": round(potencia_va, 2), "FP": fp,
         "DV": round((2 * rho * comprimento * ib * 100) / (tensao * bitola_final), 2)
     }
 def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
@@ -200,47 +191,51 @@ def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
             d.add(Line(350, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
     return d
 with st.sidebar:
-    st.write("### 👥 Gestão de Responsáveis Técnicos")
-    with st.form("form_func", clear_on_submit=True):
-        f_nome = st.text_input("Nome do Colaborador:")
-        f_func = st.selectbox("Função:", ["Responsável Técnico", "Eletricista Instalador", "Mestre de Obras", "Projetista", "Encanador", "Técnico"])
-        f_reg = st.text_input("Registro (CREA / RE):")
-        f_resp = st.checkbox("Definir como Responsável?")
-        if st.form_submit_button("Cadastrar Funcionário"):
-            if f_nome and f_reg:
-                ids_existentes = [f["id"] for f in st.session_state.funcionarios]
-                novo_id = max(ids_existentes) + 1 if ids_existentes else 1
-                st.session_state.funcionarios.append({"id": novo_id, "Nome": f_nome, "Função": f_func, "CREA_RE": f_reg, "Responsavel": f_resp})
-                salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
-                st.success("Responsável Cadastrado!")
-                st.rerun()
-
-    if st.session_state.funcionarios:
-        for idx, f in enumerate(list(st.session_state.funcionarios)):
-            col_f1, col_f2 = st.columns(2)
-            with col_f1: st.caption(f"**{f['Nome']}** ({f['Função']})")
-            with col_f2:
-                if st.button("❌", key=f"del_f_{f['id']}_{idx}"):
-                    st.session_state.funcionarios.pop(idx)
-                    salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
-                    st.rerun()
-
-# --- ENTRADA DE CLIENTES ---
-col_c1, col_c2 = st.columns(2)
-with col_c1:
-    st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
+    st.markdown(
+        """
+        <div style="background-color:#1E3A8A; padding:15px; border-radius:10px; text-align:center; margin-bottom:20px;">
+            <h2 style="color:#FFFFFF; margin:0; font-family:sans-serif; letter-spacing: 2px;">⚡ FÊNIX</h2>
+            <p style="color:#0D9488; margin:0; font-size:11px; font-weight:bold; letter-spacing: 1px;">ENGENHARIA & SISTEMAS</p>
+        </div>
+        """, unsafe_allow_html=True
+    )
+    
+    # DEMANDA ATENDIDA: Central de Clientes alocada integralmente no Lado Esquerdo
+    st.write("### 👤 Cadastro de Clientes")
     lista_clientes = listar_clientes_db()
-    opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c} - {c}" for c in lista_clientes]
+    opcoes_clientes = ["-- Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
     cliente_selecionado = st.selectbox("📂 Escolher Cliente Salvo:", opcoes_clientes)
+    
     cliente_nome = st.text_input("Nome Completo do Cliente:", value="Condomínio Residencial Bella Vista")
     cliente_endereco = st.text_input("Endereço da Obra:", value="Av. das Palmeiras, nº 450")
     cliente_cidade = st.text_input("Cidade / UF:", value="Belo Horizonte / MG")
-    if st.button("💾 Gravar Novo Cliente"):
+    if st.button("💾 Salvar Cliente no SQLite"):
         if cliente_nome and cliente_endereco:
             inserir_cliente_db(cliente_nome, cliente_endereco, cliente_cidade)
             st.success("Cliente gravado!")
             st.rerun()
 
+    st.markdown("---")
+    
+    # DEMANDA ATENDIDA: Cadastro de Materiais alocado integralmente no Lado Esquerdo
+    st.write("### 📦 Cadastro de Materiais")
+    with st.form("form_catalogo_mat", clear_on_submit=True):
+        mat_fase = st.selectbox("Segmento Alvo:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
+        mat_etapa = st.text_input("Etapa de Aplicação (Ex: Infra, Fechamento):")
+        mat_nome = st.text_input("Descrição do Insumo Técnico:")
+        mat_qtd = st.number_input("Quantidade:", value=1.0, min_value=0.1)
+        mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
+        if st.form_submit_button("💾 Gravar no Catálogo"):
+            if mat_nome and mat_etapa:
+                inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_qtd, mat_uni)
+                st.success("Material adicionado ao catálogo!")
+                st.rerun()
+
+    st.markdown("---")
+    st.write("### 👥 Equipe e Responsáveis")
+    if st.session_state.funcionarios:
+        for idx, f in enumerate(list(st.session_state.funcionarios)):
+            st.caption(f"⭐ **{f['Nome']}** ({f['Função']}) - {f['CREA_RE']}")
 CONCESSIONARIAS = {
     "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
     "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
@@ -250,14 +245,15 @@ CONCESSIONARIAS = {
     "EQUATORIAL MA/PA/PI/AL": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
     "ENERGISA MT/MS/TO/RO/AC": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN", "caixa_mono": "Caixa Padrão E", "caixa_bi": "Caixa Padrão F", "caixa_tri": "Caixa Padrão H"}
 }
-with col_c2:
-    st.write("### 🔌 Distribuição e Regulamentos do Brasil")
-    concessionaria_sel = st.selectbox("Escolha a Concessionária Logística:", list(CONCESSIONARIAS.keys()))
-    dados_c = CONCESSIONARIAS[concessionaria_sel]
 
-tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo", "📥 PDF"])
+st.write("### 🔌 Configuração Regulamentar da Infraestrutura")
+concessionaria_sel = st.selectbox("Escolha a Concessionária de Energia Alvo do Brasil:", list(CONCESSIONARIAS.keys()))
+dados_c = CONCESSIONARIAS[concessionaria_sel]
+
+tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Ver Catálogo", "📥 PDF"])
+
 with tab_civil:
-    st.write("### 🧱 Configuração de Ambientes")
+    st.write("### 🧱 Configuração de Ambientes e Prancha de Áreas")
     cc1, cc2, cc3 = st.columns(3)
     with cc1: nome_c = st.text_input("Nome do Cômodo:")
     with cc2: comp_c = st.number_input("Comprimento (m):", value=4.0)
@@ -361,9 +357,9 @@ with tab_solar:
     if st.session_state.lista_materials_solar: st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True)
 
 with tab_catalogo:
-    st.write("### 📂 Visualização de Catálogo Customizado SQLite")
+    st.write("### 📂 Visualização de Catálogo Geral Sincronizado SQLite")
     cat_df = listar_materiais_catalogo()
-    if cat_df: st.dataframe(pd.DataFrame(cat_df), use_container_width=True)
+    if cat_df: st.dataframe(pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"]), use_container_width=True)
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
@@ -376,7 +372,12 @@ def gerar_pdf_completo_obra():
     estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS (MODELO MDA)</b>", estilo_titulo), Spacer(1, 4)]
-    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]]
+    
+    c_nome_txt = cliente_nome if 'cliente_nome' in locals() and cliente_nome else "Bella Vista"
+    c_end_txt = cliente_endereco if 'cliente_endereco' in locals() and cliente_endereco else "Av Palmeiras"
+    c_cid_txt = cliente_cidade if 'cliente_cidade' in locals() and cliente_cidade else "BH/MG"
+    
+    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {c_nome_txt}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {c_end_txt}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {c_cid_txt}", estilo_celula_esq)]]
     t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
@@ -400,38 +401,19 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_circuitos_calc:
         elementos.append(PageBreak())
         elementos.append(Paragraph("1. Mapeamento de Cargas e Prancha Computacional Base MDA (NBR 5410)", estilo_sub))
-        
-        # Estrutura completa expandida sob a padronização do Modelo MDA
-        cabecalhos_mda = [
-            "CIRC", "DESCRIÇÃO DA CARGA TERMINAL", "CÔMODO", "POT(W)", "FP", "POT(VA)", 
-            "IB(A)", "I'B(A)", "FCA/FCT", "BITOLA", "PROT", "QDV(%)", "BAR R", "BAR S"
-        ]
+        cabecalhos_mda = ["CIRC", "DESCRIÇÃO DA CARGA TERMINAL", "CÔMODO", "POT(W)", "FP", "POT(VA)", "IB(A)", "I'B(A)", "FCA/FCT", "BITOLA", "PROT", "QDV(%)", "BAR R", "BAR S"]
         dados_qdc_pdf = [[Paragraph(f"<b>{h}</b>", estilo_celula) for h in cabecalhos_mda]]
-        
-        tot_r, tot_s = 0, 0
         for c in st.session_state.lista_circuitos_calc:
             p_va_val = c.get("POT_VA", c["POT_W"])
             r_val = p_va_val if c["FASE"] == "R" else (p_va_val//2 if "RS" in c["FASE"] else 0)
             s_val = p_va_val if c["FASE"] == "S" else (p_va_val//2 if "RS" in c["FASE"] else 0)
-            tot_r += r_val; tot_s += s_val
-            
             dados_qdc_pdf.append([
-                Paragraph(str(c["CIRC"]), estilo_celula),
-                Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq),
-                Paragraph(str(c.get("COMODO","Geral")), estilo_celula),
-                Paragraph(str(c["POT_W"]), estilo_celula),
-                Paragraph(str(c.get("FP", 1.0)), estilo_celula),
-                Paragraph(str(p_va_val), estilo_celula),
-                Paragraph(f"{c['IB']}A", estilo_celula),
-                Paragraph(f"{c.get('IB_CORR', c['IB'])}A", estilo_celula),
-                Paragraph("0.70/1.0", estilo_celula),
-                Paragraph(str(c["COND"]), estilo_celula),
-                Paragraph(f"{c.get('CURVA','C')}{c['DISJ']}", estilo_celula),
-                Paragraph(f"{c.get('DV', 1.2)}%", estilo_celula),
-                Paragraph(f"{r_val}VA", estilo_celula),
-                Paragraph(f"{s_val}VA", estilo_celula)
+                Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq), Paragraph(str(c.get("COMODO","Geral")), estilo_celula),
+                Paragraph(str(c["POT_W"]), estilo_celula), Paragraph(str(c.get("FP", 1.0)), estilo_celula), Paragraph(str(p_va_val), estilo_celula),
+                Paragraph(f"{c['IB']}A", estilo_celula), Paragraph(f"{c.get('IB_CORR', c['IB'])}A", estilo_celula), Paragraph("0.70/1.0", estilo_celula),
+                Paragraph(str(c["COND"]), estilo_celula), Paragraph(f"{c.get('CURVA','C')}{c['DISJ']}", estilo_celula), Paragraph(f"{c.get('DV', 1.2)}%", estilo_celula),
+                Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
-            
         t_qdc = Table(dados_qdc_pdf, colWidths=[25.0, 115.0, 65.0, 40.0, 30.0, 45.0, 40.0, 40.0, 45.0, 45.0, 40.0, 40.0, 55.0, 55.0])
         t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_qdc)
