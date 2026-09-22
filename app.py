@@ -412,16 +412,16 @@ with tab_catalogo:
         st.dataframe(df_cat, use_container_width=True, hide_index=True)
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
+    # Configura o documento em modo paisagem (A4) com margens otimizadas para tabelas largas
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=18, leftMargin=24, topMargin=24, bottomMargin=24)
     estilos = getSampleStyleSheet()
-    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=12, textColor=colors.HexColor('#1E3A8A'), spaceAfter=4)
-    estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=9.5, textColor=colors.HexColor('#0D9488'), spaceBefore=6, spaceAfter=4, fontName='Helvetica-Bold')
-    estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=6, leading=7, alignment=1)
-    estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=6, leading=7, alignment=0)
-    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['Heading3'], fontSize=10, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=3)
-    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=8.5, leading=11, alignment=4, spaceAfter=2)
     
-    elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS (MODELO MDA)</b>", estilo_titulo), Spacer(1, 4)]
+    estilo_titulo = ParagraphStyle('T', parent=estilos['Heading1'], fontSize=11, textColor=colors.HexColor('#1E3A8A'), spaceAfter=4)
+    estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=9, textColor=colors.HexColor('#0D9488'), spaceBefore=6, spaceAfter=4, fontName='Helvetica-Bold')
+    estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=5.2, leading=6.5, alignment=1)
+    estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=5.2, leading=6.5, alignment=0)
+    
+    elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS (DIRETRIZ MDA)</b>", estilo_titulo), Spacer(1, 4)]
     
     lista_cli_local = listar_clientes_db()
     if lista_cli_local:
@@ -430,7 +430,7 @@ def gerar_pdf_completo_obra():
         c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
         
     dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {c_nome_txt}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {c_end_txt}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {c_cid_txt}", estilo_celula_esq)]]
-    t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
+    t_cli = Table(dados_cliente_tabela, colWidths=[250.0, 270.0, 230.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
     pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc) if st.session_state.lista_circuitos_calc else 5000
@@ -439,53 +439,96 @@ def gerar_pdf_completo_obra():
     else: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Trifásico", "25.0 mm²", "80 A", dados_c["caixa_tri"]
 
     dados_padrao_pdf = [
-        [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Especificação Técnica</b>", estilo_celula_esq)],
-        [Paragraph("Norma Distribuidora Base", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
+        [Paragraph("<b>Parâmetro Normativo da Instalação</b>", estilo_celula), Paragraph("<b>Especificação Técnica Regulamentar</b>", estilo_celula_esq)],
+        [Paragraph("Norma Concessionária Alvo", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
         [Paragraph("Tipo de Fornecimento Entrada", estilo_celula), Paragraph(f"{tipo_entrada} - ({detalhe_caixa})", estilo_celula_esq)],
-        [Paragraph("Cabo Geral BT", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
+        [Paragraph("Cabo Geral Ramal BT", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
         [Paragraph("Disjuntor Geral Proteção", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)]
     ]
-    t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 500.0])
+    t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 510.0])
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
     elementos.append(t_pad)
 
     if st.session_state.lista_circuitos_calc:
         elementos.append(PageBreak())
         elementos.append(Paragraph("1. Mapeamento de Cargas e Prancha Computacional Base MDA (NBR 5410)", estilo_sub))
-        cabecalhos_mda = ["CIRC", "DESCRIÇÃO DA CARGA TERMINAL", "CÔMODO", "POT(W)", "FP", "POT(VA)", "IB(A)", "I'B(A)", "FCA/FCT", "BITOLA", "PROT", "QDV(%)", "BAR R", "BAR S"]
-        dados_qdc_pdf = [[Paragraph(f"<b>{h}</b>", estilo_celula) for h in cabecalhos_mda]]
         
-        sum_pot_w, sum_pot_va, sum_ib, sum_ibr = 0, 0, 0, 0
-        tot_r, tot_s = 0, 0
-        for c in st.session_state.lista_circuitos_calc:
+        # Cabeçalho estruturado em duas linhas para refletir perfeitamente o modelo anexo
+        cabecalhos_mda = [
+            ["CIRC", "LOCAL", "DESCRIÇÃO", "POT.\nILUM.(VA)", "TOMADAS", "", "", "POT. ESP.\n(VA)", "POT.\n(W)", "POT.\n(VA)", "DEMANDA\n(%)", "FAT. POT\n(%)", "CORRENTE\nPROJ. (A)", "FASES", "DISJUNTOR", "", "COND.\n(MM²)", "TENSÃO\n(V)", "CARGAS (VA)", "", ""],
+            ["", "", "", "", "100VA", "600VA", "1000VA", "", "", "", "", "", "", "", "In", "CURVA", "", "", "R", "S", "T"]
+        ]
+        
+        dados_qdc_pdf = []
+        for linha_h in cabecalhos_mda:
+            dados_qdc_pdf.append([Paragraph(f"<b>{h.replace('\n', '<br/>')}</b>", estilo_celula) for h in linha_h])
+        
+        sum_pot_w, sum_pot_va, sum_ib = 0, 0, 0
+        tot_r, tot_s, tot_t = 0, 0, 0
+        
+        for idx, c in enumerate(st.session_state.lista_circuitos_calc):
             p_w = int(c["POT_W"])
             p_va_val = c.get("POT_VA", p_w)
             sum_pot_w += p_w; sum_pot_va += p_va_val
-            sum_ib += c["IB"]; sum_ibr += c.get("IB_CORR", c["IB"])
+            sum_ib += c["IB"]
             
-            r_val = p_va_val if c["FASE"] == "R" else (p_va_val//2 if "RS" in c["FASE"] else 0)
-            s_val = p_va_val if c["FASE"] == "S" else (p_va_val//2 if "RS" in c["FASE"] else 0)
-            tot_r += r_val; tot_s += s_val
+            # Distribuição e amostragem relacional de barramentos R-S-T
+            fase_ativa = c.get("FASE", "R")
+            r_val = p_va_val if fase_ativa == "R" else (p_va_val//2 if "RS" in fase_ativa else 0)
+            s_val = p_va_val if fase_ativa == "S" else (p_va_val//2 if "RS" in fase_ativa else 0)
+            t_val = p_va_val if fase_ativa == "T" else 0
+            tot_r += r_val; tot_s += s_val; tot_t += t_val
+            
+            # Separação sintática das tomadas conforme o modelo anexo
+            is_ilum = "ILUM" in str(c["DESCRIÇÃO"]).upper()
+            t100 = str(p_va_val // 100) if (not is_ilum and p_w <= 600) else "0"
+            t600 = str(p_w // 600) if ("TUG" in str(c["DESCRIÇÃO"]).upper() and p_w > 600) else "0"
+            t_esp = str(p_w) if ("TUE" in str(c["DESCRIÇÃO"]).upper()) else "0"
             
             dados_qdc_pdf.append([
-                Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq), Paragraph(str(c.get("COMODO","Geral")), estilo_celula),
-                Paragraph(str(p_w), estilo_celula), Paragraph(str(c.get("FP", 1.0)), estilo_celula), Paragraph(str(p_va_val), estilo_celula),
-                Paragraph(f"{c['IB']}A", estilo_celula), Paragraph(f"{c.get('IB_CORR', c['IB'])}A", estilo_celula), Paragraph("0.70/1.0", estilo_celula),
-                Paragraph(str(c["COND"]), estilo_celula), Paragraph(f"{c.get('CURVA','C')}{c['DISJ']}", estilo_celula), Paragraph(f"{c.get('DV', 1.2)}%", estilo_celula),
-                Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
+                Paragraph(str(c["CIRC"]), estilo_celula),
+                Paragraph("QDC1", estilo_celula),
+                Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq),
+                Paragraph(str(p_va_val) if is_ilum else "0", estilo_celula),
+                Paragraph(t100, estilo_celula), Paragraph(t600, estilo_celula), Paragraph("0", estilo_celula),
+                Paragraph(t_esp, estilo_celula),
+                Paragraph(str(p_w), estilo_celula), Paragraph(str(p_va_val), estilo_celula),
+                Paragraph(f"{int(c.get('DEMANDA', 60))}%", estilo_celula),
+                Paragraph(f"{int(c.get('FP', 1.0)*100)}%", estilo_celula),
+                Paragraph(f"{c['IB']}A", estilo_celula),
+                Paragraph("1" if fase_ativa != "RS" else "2", estilo_celula),
+                Paragraph(str(c['DISJ']).replace("A",""), estilo_celula),
+                Paragraph(str(c.get('CURVA','C')), estilo_celula),
+                Paragraph(str(c["COND"]).replace(" mm²",""), estilo_celula),
+                Paragraph(f"{c['TENSÃO']}", estilo_celula),
+                Paragraph(str(r_val), estilo_celula), Paragraph(str(s_val), estilo_celula), Paragraph(str(t_val), estilo_celula)
             ])
             
-        # CORREÇÃO: Alinhamento central absoluto (estilo_celula) em todas as colunas da última linha totalizada
+        # Linha Final de Totais e Subtotais Acumulados 100% Centralizada com as métricas do modelo anexo
         dados_qdc_pdf.append([
-            Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>Carga Acumulada Centralizada</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
-            Paragraph(f"<b>{sum_pot_w}W</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula), Paragraph(f"<b>{sum_pot_va}VA</b>", estilo_celula),
-            Paragraph(f"<b>{round(sum_ib,1)}A</b>", estilo_celula), Paragraph(f"<b>{round(sum_ibr,1)}A</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
-            Paragraph("<b>-</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
-            Paragraph(f"<b>{tot_r}VA</b>", estilo_celula), Paragraph(f"<b>{tot_s}VA</b>", estilo_celula)
+            Paragraph("<b>TOTAL</b>", estilo_celula),
+            Paragraph("<b>-</b>", estilo_celula),
+            Paragraph(f"<b>Potência Instalada Ativa: {sum_pot_w} W | Aparente: {sum_pot_va} VA</b>", estilo_celula),
+            Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula),
+            Paragraph(f"<b>{sum_pot_w}</b>", estilo_celula), Paragraph(f"<b>{sum_pot_va}</b>", estilo_celula),
+            Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph(f"<b>{round(sum_ib, 2)}</b>", estilo_celula),
+            Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula),
+            Paragraph(f"<b>{tot_r}</b>", estilo_celula), Paragraph(f"<b>{tot_s}</b>", estilo_celula), Paragraph(f"<b>{tot_t}</b>", estilo_celula)
         ])
         
-        t_qdc = Table(dados_qdc_pdf, colWidths=[22.0, 110.0, 60.0, 38.0, 25.0, 42.0, 38.0, 38.0, 42.0, 42.0, 38.0, 38.0, 52.0, 55.0])
-        t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 2)]))
+        # Distribuição exata das larguras de colunas para acomodar todas as pranchas no espaço horizontal A4
+        larguras_mda = [14.0, 24.0, 115.0, 36.0, 24.0, 24.0, 24.0, 36.0, 34.0, 34.0, 32.0, 32.0, 36.0, 24.0, 16.0, 26.0, 32.0, 26.0, 34.0, 34.0, 34.0]
+        t_qdc = Table(dados_qdc_pdf, colWidths=larguras_mda)
+        t_qdc.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,1), colors.HexColor('#1E3A8A')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
+            ('SPAN', (4,0), (6,0)), # Mescla Título Tomadas
+            ('SPAN', (14,0), (15,0)), # Mescla Título Disjuntor
+            ('SPAN', (18,0), (20,0)), # Mescla Título Cargas VA
+            ('SPAN', (2, -1), (7, -1)), # Mescla célula descritiva do total acumulado
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E2E8F0')),
+            ('PADDING', (0,0), (-1,-1), 2)
+        ]))
         elementos.append(t_qdc)
     listas_gerais_obra = [
         ("2. Memorial da Fase Civil", st.session_state.lista_materials_civil, '#475569'),
@@ -501,7 +544,7 @@ def gerar_pdf_completo_obra():
             elementos.append(Paragraph(tit, estilo_sub))
             tbl_d = [[Paragraph("<b>Etapa</b>", estilo_celula), Paragraph("<b>Insumo Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
             for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
-            t_m = Table(tbl_d, colWidths=[130.0, 390.0, 140.0, 80.0])
+            t_m = Table(tbl_d, colWidths=[130.0, 400.0, 140.0, 80.0])
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(cor_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
 
@@ -512,7 +555,7 @@ def gerar_pdf_completo_obra():
     elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
 
-    # Fixação de notas elétricas normativas para a tampa interna do QDC físico
+    # Diretrizes e notas regulamentares obrigatórias de campo para fixação física no painel
     elementos.append(PageBreak())
     elementos.append(Paragraph("10. Observações Técnicas Normativas (Fixar na Tampa Interna do QDC)", estilo_sub))
     caviso = [
@@ -523,7 +566,7 @@ def gerar_pdf_completo_obra():
         Paragraph("• <b>Identificação de Circuitos:</b> Todas as chaves disjuntoras devem receber etiquetas correspondentes à prancha MDA sob risco de interdição técnica.", estilo_aviso_corpo),
         Paragraph("• <b>Torque e Reaperto Técnico:</b> Realizar inspeção semestral de torque nos bornes de conexão dos disjuntores para evitar pontos quentes e perdas por efeito Joule.", estilo_aviso_corpo)
     ]
-    t_av = Table([[caviso]], colWidths=[740.0])
+    t_av = Table([[caviso]], colWidths=[750.0])
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 8)]))
     elementos.append(t_av)
 
