@@ -42,8 +42,8 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row:
-            return json.loads(row)
+        if row and row[0]:
+            return json.loads(row[0])
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -102,18 +102,18 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
     d.add(String(20, altura_d - 32, f"Rede BT Ramal: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
     
     d.add(Rect(90, altura_d - 52, 45, 24, fillColor=colors.HexColor('#EFF6FF'), strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(95, altura_d - 44, f"DJ Geral", fontSize=7, fontName='Helvetica-Bold'))
+    d.add(String(95, altura_d - 44, "DJ Geral", fontSize=7, fontName='Helvetica-Bold'))
     d.add(String(95, altura_d - 51, f"{dj_pad}", fontSize=6.5, fontName='Helvetica'))
     d.add(Line(135, altura_d - 40, 160, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
     
-    d.add(Rect(160, altura_d - 52, 35, 24, fillColor=colors.FEF2F2 if hasattr(colors, 'FEF2F2') else colors.white, strokeColor=colors.black, strokeWidth=1.2))
+    d.add(Rect(160, altura_d - 52, 35, 24, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.2))
     d.add(String(166, altura_d - 44, "DPS", fontSize=7, fontName='Helvetica-Bold'))
-    d.add(String(164, altura_d - 51, "45kA Class II", fontSize=5.5))
+    d.add(String(164, altura_d - 51, "45kA Cl.II", fontSize=5.5))
     d.add(Line(195, altura_d - 40, 215, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
     
     d.add(Rect(215, altura_d - 52, 35, 24, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.2))
     d.add(String(222, altura_d - 44, "IDR", fontSize=7, fontName='Helvetica-Bold'))
-    d.add(String(219, altura_d - 51, "30mA Geral", fontSize=5.5))
+    d.add(String(219, altura_d - 51, "30mA", fontSize=5.5))
     
     d.add(Line(250, altura_d - 40, 280, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
     d.add(Line(280, altura_d - 40, 280, 20, strokeColor=colors.black, strokeWidth=2))
@@ -136,13 +136,13 @@ def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
     x_fase1, x_fase2, x_neutro, x_terra = 220, 250, 280, 310
     
     d.add(Rect(180, altura_d - 45, 160, 35, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(185, altura_d - 22, f"SISTEMA DE ENTRADA GERAL", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+    d.add(String(185, altura_d - 22, "SISTEMA DE ENTRADA GERAL", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
     d.add(String(185, altura_d - 32, f"DISJ. GERAL: {dj_pad} | CABO: {cabo_pad}", fontSize=6.5))
-    d.add(String(185, altura_d - 42, "PROTEÇÃO ADICIONAL: DISPOSITIVOS DPS + DR INTEGRADOS", fontSize=5.5, fillColor=colors.red))
+    d.add(String(185, altura_d - 42, "PROTEÇÃO ADICIONAL: DPS + IDR", fontSize=5.5, fillColor=colors.red))
     
     d.add(Line(200, altura_d - 45, x_fase1, altura_d - 65, strokeColor=colors.red, strokeWidth=1.5))
-    d.add(Line(240, altura_d - 45, x_fase2, altura_d - 65, strokeColor=colors.blue, strokeWidth=1.5))
-    d.add(Line(280, altura_d - 45, x_neutro, altura_d - 65, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(Line(240, altura_d - 45, x_fase2, altura_d - 65, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(Line(280, altura_d - 45, x_neutro, altura_d - 65, strokeColor=colors.blue, strokeWidth=1.5))
     
     d.add(Line(x_fase1, altura_d - 65, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.8))
     d.add(Line(x_fase2, altura_d - 65, x_fase2, 20, strokeColor=colors.black, strokeWidth=1.8))
@@ -152,7 +152,7 @@ def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
     d.add(String(x_fase1 - 5, altura_d - 62, "R", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.red))
     d.add(String(x_fase2 - 5, altura_d - 62, "S", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.black))
     d.add(String(x_neutro - 5, altura_d - 62, "N", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.blue))
-    d.add(String(x_terra - 5, altura_d - 15, "T", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.black))
+    d.add(String(x_terra - 5, altura_d - 15, "T", fontSize=7, fontName='Helvetica-Bold'))
     
     for idx, c in enumerate(circuitos_list):
         y = (altura_d - 100) - (idx * 35)
@@ -169,6 +169,14 @@ def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
             d.add(Circle(x_neutro, y, 2, fillColor=colors.blue, strokeColor=colors.blue))
             d.add(Line(350, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
     return d
+CONCESSIONARIAS = {
+    "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
+    "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
+    "ENEL RJ (RJ) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
+    "CPFL Paulista (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13", "caixa_mono": "Caixa Tipo II", "caixa_bi": "Caixa Tipo III", "caixa_tri": "Caixa Tipo IV"},
+    "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT", "caixa_mono": "Caixa Tipo L", "caixa_bi": "Caixa Tipo M", "caixa_tri": "Caixa Tipo N"}
+}
+
 def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
     ib = potencia / (tensao * fp)
@@ -192,8 +200,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
         
-    # CORREÇÃO DO CRASH: Vetor comercial preenchido corretamente para evitar NameError
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -219,33 +226,24 @@ with st.sidebar:
                 st.success("Funcionário Cadastrado!")
                 st.rerun()
 
-    if st.session_state.funcionarios:
-        for idx, f in enumerate(list(st.session_state.funcionarios)):
-            col_f1, col_f2 = st.columns(2)
-            with col_f1: st.write(f"**{f['Nome']}** ({f['Função']})")
-            with col_f2:
-                if st.button("❌", key=f"del_f_{f['id']}_{idx}"):
-                    st.session_state.funcionarios.pop(idx)
-                    salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
-                    st.rerun()
-
     st.markdown("---")
     st.write("### 📦 Cadastro Geral de Materiais")
     with st.form("form_catalogo_mat", clear_on_submit=True):
         mat_fase = st.selectbox("Pertence a qual Fase/Segmento?", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança"])
-        mat_etapa = st.text_input("Etapa do Serviço (Ex: Infraestrutura, Acabamento):")
+        mat_etapa = st.text_input("Etapa do Serviço:")
         mat_nome = st.text_input("Nome Técnico do Material:")
         mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
         if st.form_submit_button("💾 Cadastrar Insumo no Catálogo"):
             if mat_nome and mat_etapa:
                 inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_uni)
-                st.success(f"Material salvo no catálogo!")
+                st.success("Material salvo no catálogo!")
                 st.rerun()
+
 col_c1, col_c2 = st.columns(2)
 with col_c1:
     st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
     lista_clientes = listar_clientes_db()
-    opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c} - {c}" for c in lista_clientes]
+    opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
     cliente_selecionado = st.selectbox("📂 Escolher Cliente Salvo:", opcoes_clientes)
 
     if cliente_selecionado != "-- Cadastrar Novo Cliente --":
@@ -263,14 +261,6 @@ with col_c1:
                 inserir_cliente_db(cliente_nome, cliente_endereco, cliente_cidade)
                 st.success("Cliente gravado com sucesso!")
                 st.rerun()
-
-CONCESSIONARIAS = {
-    "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
-    "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
-    "ENEL RJ (RJ) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
-    "CPFL Paulista (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13", "caixa_mono": "Caixa Tipo II", "caixa_bi": "Caixa Tipo III", "caixa_tri": "Caixa Tipo IV"},
-    "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT", "caixa_mono": "Caixa Tipo L", "caixa_bi": "Caixa Tipo M", "caixa_tri": "Caixa Tipo N"}
-}
 
 with col_c2:
     st.write("### 🔌 Escolha da Concessionária de Distribuição")
@@ -314,10 +304,9 @@ with tab_civil:
             st.session_state.lista_materials_civil = edited_civil.to_dict(orient="records")
             st.success("Fase civil atualizada!")
             st.rerun()
+
 with tab_eletrica:
     st.write("### ⚡ Dimensionamento Elétrico NBR 5410")
-    
-    # DEMANDA ATENDIDA: Escolha obrigatória entre processar lote da casa toda ou circuito por circuito separado
     modo_eletrico = st.radio("Escolha o Modo de Escopo Elétrico:", ["Lançar o cálculo dinâmico da casa toda (Planta Otimizada)", "Lançar circuitos separados (Cálculo Individual Avançado)"], horizontal=True)
 
     lista_comodos_opcoes = [c["Cômodo"] for c in st.session_state.comodos] if st.session_state.comodos else ["Geral"]
@@ -471,7 +460,6 @@ def gerar_pdf_completo_obra():
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
     
-    # ENCAPSULAMENTO DE PROTEÇÃO DA PROTEÇÃO DO PADRÃO (PREVINE NAMEERROR)
     pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc) if st.session_state.lista_circuitos_calc else 5000
     if pot_total_sistema <= dados_c["limite_mono"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Monofásico", "10.0 mm²", "40 A", dados_c["caixa_mono"]
     elif pot_total_sistema <= dados_c["limite_bi"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Bifásico", "16.0 mm²", "63 A", dados_c["caixa_bi"]
@@ -519,7 +507,7 @@ def gerar_pdf_completo_obra():
             elementos.append(PageBreak())
             elementos.append(Paragraph(tit, estilo_sub))
             tbl_d = [[Paragraph("<b>Etapa</b>", estilo_celula), Paragraph("<b>Insumo Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
-            for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], esq:=colors.black)])
+            for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
             t_m = Table(tbl_d, colWidths=[130.0, 390.0, 140.0, 80.0])
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(cor_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
