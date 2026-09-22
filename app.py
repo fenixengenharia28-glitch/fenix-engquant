@@ -10,9 +10,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # Importação dos módulos locais soltos na mesma pasta raiz do projeto
 from db_functions import *
 from calculus_engine import *
-# Configuração primária obrigatória da janela do navegador
-st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
-
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -28,7 +25,7 @@ def gerar_pdf_completo_obra():
     cabo_padrao = "16 mm²"
     dj_padrao = "Disjuntor Geral 50A"
 
-    # CARREGA OS DADOS DIRETAMENTE DO BANCO DE DADOS PARA GARANTIR A PERSISTÊNCIA NO PDF
+    # Carrega dados diretamente do banco de dados para a persistência no documento
     disciplinas_pdf = [
         ("2. Memorial da Fase Civil", listar_materiais_calculados_fase("Civil"), '#475569'),
         ("3. Lote Hidráulico e Redes de Esgoto", listar_materiais_calculados_fase("Hidráulica"), '#1E40AF'),
@@ -49,7 +46,6 @@ def gerar_pdf_completo_obra():
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(col_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
 
-    # BUSCA OS CIRCUITOS PERMANENTES DIRETAMENTE DO BANCO DE DADOS
     circuitos_salvos = listar_circuitos_permanentes()
 
     elementos.append(PageBreak())
@@ -166,11 +162,13 @@ def main():
     concessionaria_sel = st.selectbox("Escolha a Concessionária de Energia Alvo do Brasil:", list(concessionarias_locais.keys()))
     dados_c = concessionarias_locais[concessionaria_sel]
 
-    global_tabs = st.tabs(["🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"])
-    
-    st.session_state["active_tabs_fenix"] = global_tabs
-    # Recupera a referência das abas criadas no bloco anterior
-    tab_civil = st.session_state["active_tabs_fenix"]
+    # Guarda a lista ordenada de abas no session_state para extração segura por índices
+    st.session_state["active_tabs_fenix"] = st.tabs([
+        "🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", 
+        "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"
+    ])
+    # Extração segura por índice do array de abas do Streamlit
+    tab_civil = st.session_state["active_tabs_fenix"][0]
 
     with tab_civil:
         st.write("### 🧱 Planta de Cômodos (Inserir / Alterar / Remover)")
@@ -219,7 +217,6 @@ def main():
                 salvar_materiais_calculados_fase("Civil", st.session_state.lista_materials_civil)
                 st.rerun()
         else:
-            # Sincroniza o estado de exibição buscando os dados permanentes guardados no banco
             st.session_state.lista_materials_civil = listar_materiais_calculados_fase("Civil")
             
             if lista_comodos_fisicos:
@@ -251,7 +248,6 @@ def main():
                         elif fase_cat == "Energia Solar":
                             solar_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(fat_cat)), "Unidade": uni_cat})
                     
-                    # SALVAMENTO DEFINITIVO DE TODAS AS DISCIPLINAS NO BANCO DE DADOS LOCAL
                     salvar_materiais_calculados_fase("Civil", civil_temp)
                     salvar_materiais_calculados_fase("Hidráulica", hidra_temp)
                     salvar_materiais_calculados_fase("Gás Encanado", gas_temp)
@@ -259,7 +255,6 @@ def main():
                     salvar_materiais_calculados_fase("Segurança", seg_temp)
                     salvar_materiais_calculados_fase("Energia Solar", solar_temp)
                     
-                    # Atualiza variáveis na memória volátil da sessão atual
                     st.session_state.lista_materials_civil = civil_temp
                     st.session_state.lista_materials_hidraulicos = hidra_temp
                     st.session_state.lista_materials_gas = gas_temp
@@ -267,7 +262,6 @@ def main():
                     st.session_state.lista_materials_seguranca = seg_temp
                     st.session_state.lista_materials_solar = solar_temp
                     
-                    # Limpa e pré-dimensiona os circuitos automáticos de base do modo geral
                     limpar_todos_circuitos_permanentes()
                     planta_modelo = [
                         {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(area_acumulada * 15))},
@@ -288,14 +282,13 @@ def main():
                     
         if st.session_state.lista_materials_civil: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True, hide_index=True)
-    # Recupera as referências das demais abas mapeadas no Bloco 4
-    tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.session_state["active_tabs_fenix"]
+    # Extração segura por índice da Aba Elétrica
+    tab_eletrica = st.session_state["active_tabs_fenix"][1]
 
     with tab_eletrica:
         st.write("### ⚡ Escopo e Gestão de Circuitos")
         modo_eletrica = st.radio("Selecione a Abrangência do Cálculo:", ["Casa Toda", "Apenas 1 Circuito / Circuitos Customizados"], horizontal=True, key="switch_modo_ele")
         
-        # Monitora a mudança de modo. Ao entrar em circuito customizado, limpa a prancha anterior
         if modo_eletrica != st.session_state.modo_eletrica_anterior:
             st.session_state.modo_eletrica_anterior = modo_eletrica
             if modo_eletrica == "Apenas 1 Circuito / Circuitos Customizados":
@@ -303,7 +296,6 @@ def main():
                 st.session_state.lista_circuitos_calc = []
                 st.rerun()
 
-        # Atualiza a lista da memória com os dados salvos de forma fixa no banco de dados
         st.session_state.lista_circuitos_calc = listar_circuitos_permanentes()
 
         if modo_eletrica == "Apenas 1 Circuito / Circuitos Customizados":
@@ -329,7 +321,6 @@ def main():
                             "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"],
                             "COMP": c_com_in, "DV": res["DV"]
                         }
-                        # GRAVAÇÃO DIRETA E DEFINITIVA NO BANCO DE DADOS
                         inserir_circuito_permanente(c_dados)
                         st.success(f"Circuito {c_num_in} adicionado e salvo permanentemente!")
                         st.rerun()
@@ -341,7 +332,6 @@ def main():
                     opcoes_circ = [circ["CIRC"] for circ in st.session_state.lista_circuitos_calc]
                     circ_para_remover = st.selectbox("Identificação para Excluir:", opcoes_circ)
                     if st.button("🗑️ Remover Circuito"):
-                        # EXCLUSÃO DIRETA E DEFINITIVA NO BANCO DE DADOS
                         excluir_circuito_permanente(circ_para_remover)
                         st.success("Circuito removido do banco de dados!")
                         st.rerun()
@@ -351,6 +341,15 @@ def main():
             st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum circuito programado ou calculado até o momento.")
+    # Extração segura das abas por fatiamento de índices numéricos estáveis
+    tab_hidraulica = st.session_state["active_tabs_fenix"][2]
+    tab_gas = st.session_state["active_tabs_fenix"][3]
+    tab_dados = st.session_state["active_tabs_fenix"][4]
+    tab_seguranca = st.session_state["active_tabs_fenix"][5]
+    tab_solar = st.session_state["active_tabs_fenix"][6]
+    tab_catalogo = st.session_state["active_tabs_fenix"][7]
+    tab_pdf = st.session_state["active_tabs_fenix"][8]
+
     with tab_hidraulica:
         st.session_state.lista_materials_hidraulicos = listar_materiais_calculados_fase("Hidráulica")
         if st.session_state.lista_materials_hidraulicos: 
