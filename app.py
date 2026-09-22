@@ -6,41 +6,20 @@ import json
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 
 # Configuração primária obrigatória do Streamlit
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
-# --- ENGINE DO BANCO DE DADOS PERSISTENTE LOCAL (SALVA PARA SEMPRE) ---
+# --- ENGINE DO BANCO DE DADOS PERSISTENTE LOCAL ---
 def init_db():
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS configuracoes (
-            id TEXT PRIMARY KEY,
-            dados TEXT
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT,
-            endereco TEXT,
-            cidade_uf TEXT
-        )
-    """)
-    # Nova tabela para o cadastro personalizado de catálogo de materiais e insumos
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS materiais_catalogo (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fase TEXT,
-            etapa TEXT,
-            material TEXT,
-            unidade TEXT
-        )
-    """)
+    cursor.execute("CREATE TABLE IF NOT EXISTS configuracoes (id TEXT PRIMARY KEY, dados TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, endereco TEXT, cidade_uf TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS materiais_catalogo (id INTEGER PRIMARY KEY AUTOINCREMENT, fase TEXT, etapa TEXT, material TEXT, unidade TEXT)")
     conn.commit()
     conn.close()
 
@@ -172,7 +151,8 @@ with st.sidebar:
         f_resp = st.checkbox("Definir como Responsável?")
         if st.form_submit_button("Cadastrar Funcionário"):
             if f_nome and f_reg:
-                novo_id = max([f["id"] for f in st.session_state.funcionarios] +) + 1
+                ids_existentes = [f["id"] for f in st.session_state.funcionarios]
+                novo_id = max(ids_existentes) + 1 if ids_existentes else 1
                 st.session_state.funcionarios.append({"id": novo_id, "Nome": f_nome, "Função": f_func, "CREA_RE": f_reg, "Responsavel": f_resp})
                 salvar_dados_permanentes("funcionarios", st.session_state.funcionarios)
                 st.success("Funcionário Cadastrado!")
@@ -189,17 +169,16 @@ with st.sidebar:
                     st.rerun()
 
     st.markdown("---")
-    # DEMANDA CUMPRIDA: Cadastro Geral de Catálogo de Materiais Personalizado com local de destino
     st.write("### 📦 Cadastro Geral de Materiais")
     with st.form("form_catalogo_mat", clear_on_submit=True):
-        mat_fase = st.selectbox("Pertence a qual Fase/Tipo?", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança"])
-        mat_etapa = st.text_input("Etapa do Serviço (Ex: Infraestrutura, Acabamento):")
+        mat_fase = st.selectbox("Pertence a qual Fase/Segmento?", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança"])
+        mat_etapa = st.text_input("Etapa do Serviço (Ex: Infraestrutura, Fechamento, Acabamento):")
         mat_nome = st.text_input("Nome Técnico do Material:")
         mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
         if st.form_submit_button("💾 Cadastrar Insumo no Catálogo"):
             if mat_nome and mat_etapa:
                 inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_uni)
-                st.success(f"Material salvo na fase {mat_fase}!")
+                st.success(f"Material salvo no catálogo da fase {mat_fase}!")
                 st.rerun()
 st.title("🏗️ Fênix EngCalculus Pro")
 st.subheader("ERP Corporativo Base SQLite: Memorial Dinâmico de Instalações Relacionais")
@@ -266,7 +245,7 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             bitola_final = bitolas_comerciais[idx + 1]
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -318,55 +297,47 @@ with tab_civil:
             st.session_state.lista_materials_civil = edited_civil.to_dict(orient="records")
             st.success("Fase civil atualizada!")
             st.rerun()
+
 with tab_eletrica:
-    st.write("### ⚡ Dimensionamento Elétrico NBR 5410 com Vínculo Relacional de Cômodos")
+    st.write("### ⚡ Dimensionamento Elétrico NBR 5410 com Lançamento Separável por Cômodo")
     concessionaria_sel = st.selectbox("🔌 Escolha a Distribuidora de Energia Elétrica:", list(CONCESSIONARIAS.keys()))
     dados_c = CONCESSIONARIAS[concessionaria_sel]
 
-    # DEMANDA CUMPRIDA: Verifica se existem cômodos para permitir o lançamento relacional obrigatório
     lista_comodos_opcoes = [c["Cômodo"] for c in st.session_state.comodos] if st.session_state.comodos else []
     
     if not lista_comodos_opcoes:
         st.warning("⚠️ Atenção: Cadastre pelo menos um cômodo na aba '🧱 Civil' para poder lançar os circuitos elétricos vinculados.")
     else:
-        with st.form("form_novo_circuito"):
-            st.write("#### ➕ Lançar Novo Circuito Técnico")
-            c_desc = st.selectbox("Tipo de Carga / Serviço:", ["Iluminação", "TUG - Tomadas Uso Geral", "TUE - Tomadas Uso Especial (Ar Condicionado/Chuveiro)"])
+        with st.form("form_novo_circuito_separado"):
+            st.write("#### ➕ Lançar Circuito Individual Customizado")
+            manual_nome = st.text_input("Nome do Circuito (Ex: Tomadas Cozinha, Ar Suíte):", value="Tomadas Uso Geral")
             c_comodo = st.selectbox("A qual Cômodo pertence este circuito?", lista_comodos_opcoes)
+            c_desc = st.selectbox("Tipo de Carga / Serviço:", ["Iluminação", "TUG - Tomadas Uso Geral", "TUE - Tomadas Uso Especial (Chuveiro/Ar)"])
             
-            # DEMANDA CUMPRIDA: Pergunta a quantidade de tomadas caso seja selecionada fiação de tomada (TUG/TUE)
-            if "Tomadas" in c_desc or "TUE" in c_desc or "TUG" in c_desc:
-                qtd_tomadas = st.number_input("Quantos pontos de tomada serão alimentados por este circuito?", min_value=1, value=3, step=1)
-                manual_pot = qtd_tomadas * 600 if "Geral" in c_desc else 4000 # Lógica automática NBR 5410 ou potência de TUE dedicada
+            # Condicional dinâmica para quantidade de tomadas
+            if "Tomadas" in c_desc or "TUG" in c_desc or "TUE" in c_desc:
+                qtd_tomadas = st.number_input("Quantas tomadas serão ligadas neste circuito?", min_value=1, value=4, step=1)
+                manual_pot = qtd_tomadas * 600 if "Geral" in c_desc else 4400
             else:
                 qtd_tomadas = 0
-                manual_pot = st.number_input("Potência Ativa Total da Iluminação (W):", value=1200, step=100)
+                manual_pot = st.number_input("Potência Total da Iluminação (W):", value=1200, step=100)
                 
-            manual_comp = st.number_input("Comprimento Linear do Circuito até o QDC (m):", value=15, min_value=1)
+            manual_comp = st.number_input("Metragem Linear de Cabo até o QDC (m):", value=15, min_value=1)
             tipo_rede = st.selectbox("Tipo de Fornecimento do Circuito:", ["Monofásico", "Bifásico"])
             
-            if st.form_submit_button("🔌 Dimensionar e Inserir Circuito na Prancha"):
+            if st.form_submit_button("🔌 Processar Cálculo Automático e Inserir"):
                 c_idx = str(len(st.session_state.lista_circuitos_calc) + 1)
                 tensao_c = dados_c["linha"] if tipo_rede == "Bifásico" else dados_c["fase"]
                 b, dj, crv, ib_c = dimensionar_circuito_nbr5410(manual_pot, tensao_c, manual_comp, c_desc)
                 
-                desc_final = f"{c_desc} ({qtd_tomadas} pts)" if qtd_tomadas > 0 else c_desc
+                desc_final = f"{manual_nome} ({qtd_tomadas}t)" if qtd_tomadas > 0 else manual_nome
                 st.session_state.lista_circuitos_calc.append({
-                    "CIRC": c_idx, 
-                    "DESCRIÇÃO": desc_final, 
-                    "COMODO": c_comodo, # Vínculo guardado
-                    "POT_W": int(manual_pot), 
-                    "TIPO": tipo_rede,
-                    "DISJ": f"{dj}A", 
-                    "CURVA": crv, 
-                    "COND": f"{b} mm²", 
-                    "FASE": "RS" if tipo_rede == "Bifásico" else "R", 
-                    "TENSÃO": int(tensao_c), 
-                    "IB": float(ib_c), 
-                    "COMP": int(manual_comp)
+                    "CIRC": c_idx, "DESCRIÇÃO": desc_final, "COMODO": c_comodo, "POT_W": int(manual_pot), "TIPO": tipo_rede,
+                    "DISJ": f"{dj}A", "CURVA": crv, "COND": f"{b} mm²", "FASE": "RS" if tipo_rede == "Bifásico" else "R",
+                    "TENSÃO": int(tensao_c), "IB": float(ib_c), "COMP": int(manual_comp)
                 })
                 salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
-                st.success(f"Circuito {c_idx} alocado no(a) {c_comodo}!")
+                st.success(f"Circuito {manual_nome} alocado com sucesso!")
                 st.rerun()
 
     if st.session_state.lista_circuitos_calc:
@@ -375,7 +346,7 @@ with tab_eletrica:
         if st.button("💾 Salvar Alterações da Fase Elétrica"):
             st.session_state.lista_circuitos_calc = edited_eletrica.to_dict(orient="records")
             salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
-            st.success("QDC atualizado com sucesso!")
+            st.success("QDC atualizado!")
             st.rerun()
 with tab_hidraulica:
     st.write("### 🚰 Redes Hidráulicas e Esgoto Sanitário")
@@ -389,7 +360,6 @@ with tab_hidraulica:
             {"Etapa": "03. Esgoto", "Material": "Tubo Esgoto PVC Branco 100mm (6m)", "Quantidade": float(math.ceil(m_tubo_esgoto / 6.0)), "Unidade": "barra"}
         ]
         st.rerun()
-        
     if st.session_state.lista_materials_hidraulicos:
         edited_hidr = st.data_editor(pd.DataFrame(st.session_state.lista_materials_hidraulicos), num_rows="dynamic", use_container_width=True, key="editor_hidr")
         if st.button("💾 Salvar Alterações Hidráulicas"):
@@ -400,7 +370,7 @@ with tab_gas:
     st.write("### 🔥 Dimensionamento e Insumos de Redes de Gás Encanado")
     pontos_gas = st.number_input("Quantidade de Aparelhos a Gás (Fogão/Aquecedor):", min_value=1, value=2)
     m_cobre = st.number_input("Metragem de Rede de Cobre Hidrolítico Sem Costura (m):", min_value=2, value=12)
-    if st.button("📊 Processar Engenharia de Gás Automática"):
+    if st.button("📊 Processar Gás Automático"):
         st.session_state.lista_materials_gas = [
             {"Etapa": "01. Tubulação", "Material": "Tubo de Cobre Sem Costura 15mm", "Quantidade": float(math.ceil(m_cobre)), "Unidade": "m"},
             {"Etapa": "02. Regulagem", "Material": "Regulador de Pressão Gás GLP 7kg/h", "Quantidade": 1.0, "Unidade": "un"},
@@ -416,7 +386,7 @@ with tab_gas:
 with tab_dados:
     st.write("### 🌐 Infraestrutura de Redes de Dados e Internet")
     m_cat6 = st.number_input("Metragem Estimada de Cabo LAN UTP Cat6 Puro Cobre (m):", min_value=20, value=150)
-    if st.button("📊 Processar Telecom e Internet Automática"):
+    if st.button("📊 Processar Telecom e Internet"):
         st.session_state.lista_materials_dados = [
             {"Etapa": "01. Cabeamento", "Material": "Cabo de Rede UTP Cat6 Puro Cobre", "Quantidade": float(m_cat6), "Unidade": "m"},
             {"Etapa": "02. Ativos", "Material": "Switch Gerenciável Gigabit PoE 16 Portas", "Quantidade": 1.0, "Unidade": "un"},
@@ -428,57 +398,32 @@ with tab_dados:
         if st.button("💾 Salvar Alterações de Internet"):
             st.session_state.lista_materials_dados = edited_dados.to_dict(orient="records")
             st.rerun()
-def def_recalcular_materiais_brutos_eletricos(area_ref, tipo_ent, dj_pad, circuitos_list):
-    materiais = [
-        {"Etapa": "Infra Elétrica", "Material": "Eletroduto PVC Flexível Corrugado 3/4 (50m)", "Quantidade": max(1.0, float(math.ceil(area_ref * 1.8 / 50.0))), "Unidade": "rl"},
-        {"Etapa": "Infra Elétrica", "Material": "Caixa de Passagem Plástica 4x2", "Quantidade": max(4.0, float(math.ceil(area_ref * 0.45))), "Unidade": "un"},
-        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 1.5 mm² (100m)", "Quantidade": max(1.0, float(math.ceil(area_ref * 1.5 / 100.0))), "Unidade": "rl"},
-        {"Etapa": "Fiação Elétrica", "Material": "Cabo Flexível Antichama 2.5 mm² (100m)", "Quantidade": max(1.0, float(math.ceil(area_ref * 2.8 / 100.0))), "Unidade": "rl"}
-    ]
-    st.session_state.lista_materials_eletricos = materiais
-
-try: area_obra_ref = area_obra
-except: area_obra_ref = 70.0
-
-if st.session_state.lista_circuitos_calc:
-    pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc)
-else:
-    pot_total_sistema = 5000
-
-if pot_total_sistema <= dados_c["limite_mono"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Monofásico", "10.0 mm²", "40 A", dados_c["caixa_mono"]
-elif pot_total_sistema <= dados_c["limite_bi"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Bifásico", "16.0 mm²", "63 A", dados_c["caixa_bi"]
-else: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Trifásico", "25.0 mm²", "80 A", dados_c["caixa_tri"]
-
-def_recalcular_materials = def_recalcular_materiais_brutos_eletricos(area_obra_ref, tipo_entrada, dj_padrao, st.session_state.lista_circuitos_calc)
 
 with tab_seguranca:
     st.write("### 🛡️ Engenharia de Sistemas de Segurança e Monitoramento CFTV")
     n_cameras = st.number_input("Quantidade de Câmeras IP IP67:", min_value=0, value=st.session_state.seguranca_insumos["cameras"], step=1)
     n_sensores = st.number_input("Quantidade de Sensores de Presença IVP:", min_value=0, value=st.session_state.seguranca_insumos["sensores"], step=1)
     m_cabo_rede = st.number_input("Metragem de Cabo UTP Cat6 (m):", min_value=10, value=st.session_state.seguranca_insumos["cabo_m"], step=10)
-    if st.button("📊 Processar Sistemas de Segurança Automático"):
+    if st.button("📊 Processar Segurança Eletrônica"):
         st.session_state.lista_materials_seguranca = [
             {"Etapa": "Segurança Eletrônica", "Material": "Câmera CFTV IP Bullet 2MP Full HD IP67", "Quantidade": float(n_cameras), "Unidade": "un"},
             {"Etapa": "Segurança Eletrônica", "Material": "Gravador Digital de Vídeo NVR 8 Canais", "Quantidade": 1.0 if n_cameras <= 8 else 2.0, "Unidade": "un"},
-            {"Etapa": "Segurança Eletrônica", "Material": "Sensor Infravermelho Passivo (IVP)", "Quantidade": float(n_sensores), "Unidade": "un"},
-            {"Etapa": "Segurança Eletrônica", "Material": "Cabo de Rede Blindado UTP Cat6", "Quantidade": float(m_cabo_rede), "Unidade": "m"}
+            {"Etapa": "Segurança Eletrônica", "Material": "Sensor Infravermelho Passivo (IVP)", "Quantidade": float(n_sensores), "Unidade": "un"}
         ]
         st.session_state.seguranca_insumos = {"cameras": n_cameras, "sensores": n_sensores, "cabo_m": m_cabo_rede}
         salvar_dados_permanentes("seguranca", st.session_state.seguranca_insumos)
         st.rerun()
-
     if st.session_state.lista_materials_seguranca:
         edited_seg = st.data_editor(pd.DataFrame(st.session_state.lista_materials_seguranca), num_rows="dynamic", use_container_width=True, key="editor_seg")
         if st.button("💾 Salvar Alterações de Segurança"):
             st.session_state.lista_materials_seguranca = edited_seg.to_dict(orient="records")
             st.rerun()
 
-# DEMANDA CUMPRIDA: Aba de visualização do Catálogo Geral gravado permanentemente no SQLite
 with tab_catalogo:
     st.write("### 📂 Catálogo Geral de Materiais Cadastrados no Banco de Dados")
     dados_catalogo = listar_materiais_catalogo()
     if dados_catalogo:
-        df_cat = pd.DataFrame(dados_catalogo, columns=["ID", "Fase/Pertencimento", "Etapa de Serviço", "Insumo Técnico", "Unidade"])
+        df_cat = pd.DataFrame(dados_catalogo, columns=["ID", "Fase/Segmento", "Etapa de Serviço", "Insumo Técnico", "Unidade"])
         st.dataframe(df_cat, use_container_width=True)
     else:
         st.info("Nenhum material cadastrado de forma personalizada ainda. Use o formulário da barra lateral.")
@@ -501,6 +446,15 @@ def gerar_pdf_completo_obra():
     
     responsaveis_projeto = [f"{f['Função']}: {f['Nome']} ({f['CREA_RE']})" for f in st.session_state.funcionarios if f["Responsavel"]]
     elementos.append(Paragraph(f"<b>Responsáveis Técnicos:</b> {' | '.join(responsaveis_projeto)}", estilo_celula_esq))
+
+    # Lógica de enquadramento técnico automática da concessionária para o PDF
+    try: area_ref_val = area_obra
+    except: area_ref_val = 70.0
+    
+    pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc) if st.session_state.lista_circuitos_calc else 5000
+    if pot_total_sistema <= dados_c["limite_mono"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Monofásico", "10.0 mm²", "40 A", dados_c["caixa_mono"]
+    elif pot_total_sistema <= dados_c["limite_bi"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Bifásico", "16.0 mm²", "63 A", dados_c["caixa_bi"]
+    else: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Trifásico", "25.0 mm²", "80 A", dados_c["caixa_tri"]
 
     elementos.append(Paragraph(f"<b>Padrão de Entrada Homologado ({concessionaria_sel})</b>", estilo_sub))
     dados_padrao_pdf = [
@@ -530,13 +484,13 @@ def gerar_pdf_completo_obra():
         t_qdc = Table(dados_qdc_pdf, colWidths=[30.0, 160.0, 80.0, 45.0, 45.0, 55.0, 40.0, 50.0, 35.0, 40.0, 50.0, 50.0])
         t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('SPAN', (0,-1), (-1,-1)), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F1F5F9')), ('PADDING', (0,0), (-1,-1), 3), ('ALIGN', (0,-1), (-1,-1), 'CENTER')]))
         elementos.append(t_qdc)
+
     listas_gerais_obra = [
         ("2. Memorial Quantitativo da Alvenaria e Cubagem Civil", st.session_state.lista_materials_civil, '#475569'),
-        ("3. Componentes Elétricos Brutos e Infraestrutura", st.session_state.lista_materials_eletricos, '#0D9488'),
-        ("4. Lote Hidráulico e Redes de Esgoto Sanitário", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
-        ("5. Infraestrutura e Tubulações de Gás Encanado (GLP/GN)", st.session_state.lista_materials_gas, '#B45309'),
-        ("6. Cabeamento Estruturado e Rede de Internet/Dados", st.session_state.lista_materials_dados, '#6D28D9'),
-        ("7. Lote de Ativos e Segurança Eletrônica Monitorável", st.session_state.lista_materials_seguranca, '#0F172A')
+        ("3. Lote Hidráulico e Redes de Esgoto Sanitário", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
+        ("4. Infraestrutura e Tubulações de Gás Encanado (GLP/GN)", st.session_state.lista_materials_gas, '#B45309'),
+        ("5. Cabeamento Estruturado e Rede de Internet/Dados", st.session_state.lista_materials_dados, '#6D28D9'),
+        ("6. Lote de Ativos e Segurança Eletrônica Monitorável", st.session_state.lista_materials_seguranca, '#0F172A')
     ]
     for tit, lista, cor_hex in listas_gerais_obra:
         if lista:
@@ -549,24 +503,22 @@ def gerar_pdf_completo_obra():
             elementos.append(t_m)
 
     elementos.append(PageBreak())
-    elementos.append(Paragraph("8. Diagrama Unifilar e Distribuição de Barramentos", estilo_sub))
+    elementos.append(Paragraph("7. Diagrama Unifilar e Distribuição de Barramentos", estilo_sub))
     elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
     elementos.append(PageBreak())
-    elementos.append(Paragraph("9. Esquema Técnico Multifilar de Bornes por Fase", estilo_sub))
+    elementos.append(Paragraph("8. Esquema Técnico Multifilar de Bornes por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(st.session_state.lista_circuitos_calc))
 
     elementos.append(PageBreak())
-    elementos.append(Paragraph("10. Diretrizes Técnicas e Normativas de Campo", estilo_sub))
+    elementos.append(Paragraph("9. Diretrizes Técnicas e Normativas de Campo", estilo_sub))
     caviso = [
         Paragraph("<b>📝 DIRETRIZES DE CAMPO - REGRAS DE EXECUÇÃO NBR 5410 & NR-10</b>", estilo_aviso_tit),
         Spacer(1, 4),
-        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno (Iluminação).", estilo_aviso_corpo),
+        Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴🟡 PRETO / VERMELHO / AMARELO: Condutores de Fase | ⚪⚪ BRANCO / CINZA: Condutores de Retorno.", estilo_aviso_corpo),
         Paragraph("• <b>Identificação de Circuitos:</b> É obrigatório manter todos os disjuntores devidamente identificados nesta tampa de acordo com a fiação correspondente.", estilo_aviso_corpo),
-        Paragraph("• <b>Teste Mensal do DR:</b> Pressione o botão 'T' (Teste) do interruptor diferencial residual mensalmente. Se ele não desarmar e desligar a energia da casa, substitua-o imediatamente (risco de choque).", estilo_aviso_corpo),
-        Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela verde indica funcionamento normal; janela vermelha exige substituição imediata do módulo.", estilo_aviso_corpo),
-        Paragraph("• <b>Seção vs. Disjuntor:</b> Nunca aumente a amperagem de um disjuntor sem recalcular a fiação. O disjuntor protege o fio; alterar o valor sem critério técnico causa incêndio.", estilo_aviso_corpo),
-        Paragraph("• <b>Conexões Seguras:</b> Toda manutenção ou adição de circuito deve utilizar terminais elétricos apropriados (tipo ilhós/tubular). Emendas simples dentro do QDC são proibidas.", estilo_aviso_corpo),
-        Paragraph("• <b>Profissionalismo:</b> Qualquer alteração na rede elétrica residencial deve ser feita exclusivamente por um eletricista qualificado.", estilo_aviso_corpo)
+        Paragraph("• <b>Teste Mensal do DR:</b> Pressione o botão 'T' (Teste) do interruptor diferencial residual mensalmente. Se ele não desarmar e desligar a energia da casa, substitua-o imediatamente.", estilo_aviso_corpo),
+        Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela verde indica funcionamento normal; janela vermelha exige substituição imediata.", estilo_aviso_corpo),
+        Paragraph("• <b>Seção vs. Disjuntor:</b> Nunca aumente a amperagem de um disjuntor sem recalcular a fiação. O disjuntor protege o fio; alterar o valor sem critério técnico causa incêndio.", estilo_aviso_corpo)
     ]
     t_av = Table([[caviso]], colWidths=[740.0])
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
