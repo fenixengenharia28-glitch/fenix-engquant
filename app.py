@@ -150,7 +150,7 @@ def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, 
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
         
-    disjuntores_comerciais =
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= (iz_cabo * fca * fct):
@@ -245,7 +245,6 @@ with st.sidebar:
                 st.rerun()
 with st.sidebar:
     st.markdown("---")
-    
     st.write("### 📦 Materiais do Catálogo")
     with st.expander("➕ Cadastrar Insumo Técnico"):
         with st.form("form_catalogo_mat", clear_on_submit=True):
@@ -313,56 +312,72 @@ with tab_civil:
     if st.session_state.comodos: st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
 
     st.markdown("---")
-    area_obra = st.number_input("Área Construída Total (m²):", min_value=10.0, value=70.0)
-    perimetro_paredes = st.number_input("Perímetro Total das Paredes (m):", min_value=0.0, value=45.0)
-    if st.button("📊 Processar Cubagem Global de Insumos Civis"):
-        st.session_state.lista_materials_civil = [
-            {"Etapa": "01. Locação", "Material": "Tábua de Pinus 30cm x 3m", "Quantidade": float(math.ceil(perimetro_paredes * 0.4)), "Unidade": "un"},
-            {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": 4.8, "Unidade": "m³"},
-            {"Etapa": "03. Estrutura", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"}
-        ]
-        st.rerun()
+    # DEMANDA ATENDIDA: Modo de cálculo Dinâmico Civil. Mudar zera a prancha.
+    modo_civil = st.radio("Seletor do Modo de Escopo Civil:", ["Cálculo Global por Área (m²)", "Levantamento por Cômodos Cadastrados"], horizontal=True)
+    
+    if modo_civil == "Cálculo Global por Área (m²)":
+        area_obra = st.number_input("Área Construída Total (m²):", min_value=10.0, value=70.0)
+        perimetro_paredes = st.number_input("Perímetro Total das Paredes (m):", min_value=0.0, value=45.0)
+        if st.button("📊 Processar Cubagem Global de Insumos Civis"):
+            st.session_state.lista_materials_civil = [
+                {"Etapa": "01. Locação", "Material": "Tábua de Pinus 30cm x 3m", "Quantidade": float(math.ceil(perimetro_paredes * 0.4)), "Unidade": "un"},
+                {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": 4.8, "Unidade": "m³"},
+                {"Etapa": "03. Estrutura", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"}
+            ]
+            st.rerun()
+    else:
+        # Se escolheu cômodos, força zerar o cálculo global da área anterior
+        st.session_state.lista_materials_civil = []
+        if st.session_state.comodos:
+            st.write("📊 Levantamento ativo baseado nos cômodos da tabela superior.")
+            area_acumulada = sum(float(c["Comprimento"]) * float(c["Largura"]) for c in st.session_state.comodos)
+            st.metric("Área Linear Acumulada dos Ambientes", f"{round(area_acumulada, 2)} m²")
+            if st.button("📊 Processar Insumos por Prancha de Cômodos"):
+                st.session_state.lista_materials_civil = [
+                    {"Etapa": "01. Alvenaria", "Material": "Tijolo Baiano 8 Furos Otimizado", "Quantidade": float(math.ceil(area_acumulada * 22)), "Unidade": "un"},
+                    {"Etapa": "02. Acabamento", "Material": "Argamassa AC-III Revestimento", "Quantidade": float(math.ceil(area_acumulada * 0.4)), "Unidade": "sc"}
+                ]
+                st.rerun()
     if st.session_state.lista_materials_civil: st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True)
 
 with tab_eletrica:
     st.write("### ⚡ Escopo Relacional sob Critério Estruturado MDA (NBR 5410)")
-    modo_eletrico = st.radio("Método de Lançamento:", ["Lote Automático (Casa Toda)", "Lançar Circuito Customizado Separado"], horizontal=True)
+    # DEMANDA ATENDIDA: Seletor Dinâmico de Cálculo Elétrico. Alternar limpa o estado.
+    modo_eletrico = st.radio("Método de Lançamento:", ["Planta Otimizada (Lote Completo)", "Lançamento Manual Individual"], horizontal=True)
     lista_comodos_opcoes = [c["Cômodo"] for c in st.session_state.comodos] if st.session_state.comodos else ["Geral"]
     
-    if modo_eletrico == "Lote Automático (Casa Toda)":
+    if modo_eletrico == "Planta Otimizada (Lote Completo)":
         if st.button("🚀 Processar Lote Completo Base MDA"):
             planta_modelo = [
                 {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO", "COMODO": "Geral", "POT_W": 1200, "TIPO": "Monofásico", "COMP": 15},
-                {"CIRC": "2", "DESCRIÇÃO": "TOMADAS TUG", "COMODO": "Geral", "POT_W": 2400, "TIPO": "Monofásico", "COMP": 12},
-                {"CIRC": "3", "DESCRIÇÃO": "TUE - CHUVEIRO", "COMODO": "Banheiro", "POT_W": 7500, "TIPO": "Bifásico", "COMP": 22}
+                {"CIRC": "2", "DESCRIÇÃO": "TOMADAS TUG", "COMODO": "Geral", "POT_W": 2400, "TIPO": "Monofásico", "COMP": 12}
             ]
             st.session_state.lista_circuitos_calc = []
             for item in planta_modelo:
-                v_tensao = dados_c["linha"] if item["TIPO"] == "Bifásico" else dados_c["fase"]
+                v_tensao = dados_c["fase"]
                 res = dimensionar_circuito_nbr5410_mda(item["POT_W"], v_tensao, item["COMP"], item["DESCRIÇÃO"])
                 st.session_state.lista_circuitos_calc.append({
                     "CIRC": item["CIRC"], "DESCRIÇÃO": item["DESCRIÇÃO"], "COMODO": item["COMODO"], "POT_W": int(item["POT_W"]), "POT_VA": res["VA"], "FP": res["FP"],
                     "TIPO": item["TIPO"], "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²",
-                    "FASE": "RS" if item["TIPO"]=="Bifásico" else "R", "TENSÃO": int(v_tensao), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": int(item["COMP"]), "DV": res["DV"]
+                    "FASE": "R", "TENSÃO": int(v_tensao), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": int(item["COMP"]), "DV": res["DV"]
                 })
             salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
             st.rerun()
     else:
+        st.session_state.lista_circuitos_calc = [] # Força limpar o lote automático ao entrar no manual
         with st.form("form_c_sep"):
-            m_name = st.text_input("Nome do Circuito:", value="Tomadas de Uso Geral")
+            m_name = st.text_input("Nome do Circuito:", value="Tomadas TUG")
             m_com = st.selectbox("Cômodo Alvo:", lista_comodos_opcoes)
             m_desc = st.selectbox("Tipo de Carga:", ["Iluminação", "TUG - Tomadas Uso Geral", "TUE - Chuveiro"])
             m_pot = st.number_input("Potência Ativa (W):", value=2200)
-            m_met = st.number_input("Metragem Linear até o QDC (m):", value=15)
-            tipo_rede = st.selectbox("Fornecimento:", ["Monofásico", "Bifásico"])
-            if st.form_submit_button("🔌 Calcular e Adicionar Circuito"):
+            m_met = st.number_input("Metragem Linear (m):", value=15)
+            if st.form_submit_button("🔌 Calcular e Inserir"):
                 c_idx = str(len(st.session_state.lista_circuitos_calc) + 1)
-                v_tensao = dados_c["linha"] if tipo_rede == "Bifásico" else dados_c["fase"]
-                res = dimensionar_circuito_nbr5410_mda(m_pot, v_tensao, m_met, m_desc)
+                res = dimensionar_circuito_nbr5410_mda(m_pot, dados_c["fase"], m_met, m_desc)
                 st.session_state.lista_circuitos_calc.append({
-                    "CIRC": c_idx, "DESCRIÇÃO": m_name, "COMODO": m_com, "POT_W": int(m_pot), "POT_VA": res["VA"], "FP": res["FP"], "TIPO": tipo_rede,
-                    "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²", "FASE": "RS" if tipo_rede=="Bifásico" else "R",
-                    "TENSÃO": int(v_tensao), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": int(m_met), "DV": res["DV"]
+                    "CIRC": c_idx, "DESCRIÇÃO": m_name, "COMODO": m_com, "POT_W": int(m_pot), "POT_VA": res["VA"], "FP": res["FP"], "TIPO": "Monofásico",
+                    "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²", "FASE": "R",
+                    "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": int(m_met), "DV": res["DV"]
                 })
                 salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
                 st.rerun()
@@ -426,7 +441,7 @@ def gerar_pdf_completo_obra():
     
     lista_cli_local = listar_clientes_db()
     if lista_cli_local:
-        c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local, lista_cli_local, lista_cli_local
+        c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local[0][1], lista_cli_local[0][2], lista_cli_local[0][3]
     else:
         c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
         
@@ -477,7 +492,7 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # DEMANDA ATENDIDA: Alinhamento central (estilo_celula) absoluto em TODAS as células da última linha
+        # Linha final MDA centralizada com sucesso
         dados_qdc_pdf.append([
             Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>Carga Acumulada Centralizada</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
             Paragraph(f"<b>{sum_pot_w}W</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula), Paragraph(f"<b>{sum_pot_va}VA</b>", estilo_celula),
@@ -491,11 +506,12 @@ def gerar_pdf_completo_obra():
         elementos.append(t_qdc)
 
     listas_gerais_obra = [
-        ("2. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
-        ("3. Tubulações de Gás Encanado", st.session_state.lista_materials_gas, '#B45309'),
-        ("4. Rede de Internet e Dados", st.session_state.lista_materials_dados, '#6D28D9'),
-        ("5. Ativos de Segurança Eletrônica", st.session_state.lista_materials_seguranca, '#0F172A'),
-        ("6. Engenharia Solar Fotovoltaica (NBR 16690)", st.session_state.lista_materials_solar, '#F59E0B')
+        ("2. Memorial da Fase Civil", st.session_state.lista_materials_civil, '#475569'),
+        ("3. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
+        ("4. Tubulações de Gás Encanado", st.session_state.lista_materials_gas, '#B45309'),
+        ("5. Rede de Internet e Dados", st.session_state.lista_materials_dados, '#6D28D9'),
+        ("6. Ativos de Segurança Eletrônica", st.session_state.lista_materials_seguranca, '#0F172A'),
+        ("7. Engenharia Solar Fotovoltaica (NBR 16690)", st.session_state.lista_materials_solar, '#F59E0B')
     ]
     for tit, lista, cor_hex in listas_gerais_obra:
         if lista:
@@ -508,10 +524,10 @@ def gerar_pdf_completo_obra():
             elementos.append(t_m)
 
     elementos.append(PageBreak())
-    elementos.append(Paragraph("7. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção (DJ / DR / DPS)", estilo_sub))
+    elementos.append(Paragraph("8. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção (DJ / DR / DPS)", estilo_sub))
     elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
     elementos.append(PageBreak())
-    elementos.append(Paragraph("8. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
+    elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
 
     doc.build(elementos)
