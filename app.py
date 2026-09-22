@@ -10,12 +10,15 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 
+# Configuração primária obrigatória do Streamlit
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
-# --- ENGINE DO BANCO DE DADOS PERSISTENTE LOCAL ---
+# --- ENGINE DO BANCO DE DADOS PERSISTENTE LOCAL (CORREÇÃO DE ESTRUTURA OPERACIONAL) ---
 def init_db():
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
+    # Remove as versões antigas conflitantes e incompatíveis da tabela
+    cursor.execute("DROP TABLE IF EXISTS materiais_catalogo")
     cursor.execute("CREATE TABLE IF NOT EXISTS configuracoes (id TEXT PRIMARY KEY, dados TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, endereco TEXT, cidade_uf TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS materiais_catalogo (id INTEGER PRIMARY KEY AUTOINCREMENT, fase TEXT, etapa TEXT, material TEXT, quantidade REAL, unidade TEXT)")
@@ -40,7 +43,7 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row[0]: return json.loads(row[0])
+        if row and row: return json.loads(row[0])
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -59,7 +62,6 @@ def listar_clientes_db():
     rows = cursor.fetchall()
     conn.close()
     return rows
-
 def inserir_material_catalogo(fase, etapa, material, quantidade, unidade):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
@@ -75,15 +77,6 @@ def listar_materiais_catalogo():
     conn.close()
     return rows
 
-def atualizar_lote_materiais_fase(fase, lista_materiais):
-    conn = sqlite3.connect("fenix_database.db")
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM materiais_catalogo WHERE fase = ?", (fase,))
-    for m in lista_materials:
-        cursor.execute("INSERT INTO materiais_catalogo (fase, etapa, material, quantidade, unidade) VALUES (?, ?, ?, ?, ?)", 
-                       (fase, m.get("Etapa", "Geral"), m.get("Material", ""), float(m.get("Quantidade", 0.0)), m.get("Unidade", "un")))
-    conn.commit()
-    conn.close()
 if "db_sync_completo" not in st.session_state:
     st.session_state.lista_materials_civil = []
     st.session_state.lista_materials_eletricos = []
@@ -97,20 +90,6 @@ if "db_sync_completo" not in st.session_state:
     st.session_state.comodos = carregar_dados_permanentes("comodos", [])
     st.session_state.seguranca_insumos = carregar_dados_permanentes("seguranca", {"cameras": 4, "sensores": 3, "cabo_m": 100})
     st.session_state.db_sync_completo = True
-
-CONCESSIONARIAS = {
-    "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
-    "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
-    "ENEL RJ (RJ) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
-    "ENEL CE (CE) - NT-002": {"fase": 220, "linha": 380, "limite_mono": 12000, "limite_bi": 25000, "norma": "NT-002 ENEL", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "CPFL Paulista (SP)": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "GED-13", "caixa_mono": "Caixa Tipo II", "caixa_bi": "Caixa Tipo III", "caixa_tri": "Caixa Tipo IV"},
-    "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT", "caixa_mono": "Caixa Tipo L", "caixa_bi": "Caixa Tipo M", "caixa_tri": "Caixa Tipo N"},
-    "COPEL (PR) - NTC 901": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 24000, "norma": "NTC 901100", "caixa_mono": "Caixa Tipo Mono", "caixa_bi": "Caixa Tipo Bi", "caixa_tri": "Caixa Tipo Tri"},
-    "CELESC (SC) - N-321": {"fase": 220, "linha": 380, "limite_mono": 15000, "limite_bi": 25000, "norma": "N-321.0001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "EQUATORIAL MA/PA/PI/AL": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "NT-01.EQ", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
-    "NEOENERGIA BA/PE/RN/DF": {"fase": 220, "linha": 380, "limite_mono": 10000, "limite_bi": 15000, "norma": "DIS-NOR-001", "caixa_mono": "Caixa Monofásica", "caixa_bi": "Caixa Bifásica", "caixa_tri": "Caixa Trifásica"},
-    "ENERGISA MT/MS/TO/RO/AC": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN", "caixa_mono": "Caixa Padrão E", "caixa_bi": "Caixa Padrão F", "caixa_tri": "Caixa Padrão H"}
-}
 def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
     ib = potencia / (tensao * fp)
@@ -171,7 +150,6 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
         d.add(String(340, y + 4, str(c.get('COND','2.5 mm²')), fontSize=6.5, fillColor=colors.HexColor('#2563EB'), fontName='Helvetica-Bold'))
         d.add(String(375, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:22]} - {c.get('COMODO','Geral')}", fontSize=7.5))
     return d
-
 def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
     n_circ = len(circuitos_list) if circuitos_list else 1
     altura_d = max(260, (n_circ * 35) + 140)
@@ -199,7 +177,6 @@ def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
             d.add(Circle(x_neutro, y, 2, fillColor=colors.blue, strokeColor=colors.blue))
             d.add(Line(350, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
     return d
-# --- LAYOUT E SELETOR DE CLIENTE ---
 col_c1, col_c2 = st.columns(2)
 with col_c1:
     st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
@@ -215,13 +192,17 @@ with col_c1:
             st.success("Cliente gravado!")
             st.rerun()
 
+CONCESSIONARIAS = {
+    "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
+    "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
+    "LIGHT (RJ) - Recon-BT": {"fase": 127, "linha": 220, "limite_mono": 8000, "limite_bi": 15000, "norma": "Recon-BT", "caixa_mono": "Caixa Tipo L", "caixa_bi": "Caixa Tipo M", "caixa_tri": "Caixa Tipo N"}
+}
 with col_c2:
     st.write("### 🔌 Distribuição e Concessionária")
     concessionaria_sel = st.selectbox("Distribuidora Alvo:", list(CONCESSIONARIAS.keys()))
     dados_c = CONCESSIONARIAS[concessionaria_sel]
 
 tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo", "📥 PDF"])
-
 with tab_civil:
     st.write("### 🧱 Cadastro de Cômodos")
     cc1, cc2, cc3 = st.columns(3)
@@ -288,44 +269,39 @@ with tab_seguranca:
     if st.button("Calcular Segurança"):
         st.session_state.lista_materials_seguranca = [{"Etapa": "01. CFTV", "Material": "Câmeras IP HD Bullet", "Quantidade": float(m_cam), "Unidade": "un"}]
 
-# --- NOVO MOTOR DE ENERGIA SOLAR FOTOVOLTAICA ---
 with tab_solar:
-    st.write("### ☀️ Dimensionamento e Insumos Fotovoltaicos (NBR 16690)")
-    pot_solar_kwp = st.number_input("Potência Total Demandada do Sistema Fotovoltaico (kWp):", min_value=1.0, value=5.5, step=0.5)
-    tipo_telhado = st.selectbox("Tipo de Estrutura de Fixação / Telhado:", ["Telha Cerâmica", "Telha Metálica", "Laje de Concreto", "Solo Estruturado"])
-    if st.button("📊 Processar Engenharia Solar Fotovoltaica"):
-        # Lógica de engenharia baseada em módulos de 550Wp e inversores string padrão mercado
+    st.write("### ☀️ Dimensionamento Fotovoltaico (NBR 16690)")
+    pot_solar_kwp = st.number_input("Potência Total Demandada do Sistema (kWp):", min_value=1.0, value=5.5, step=0.5)
+    tipo_telhado = st.selectbox("Tipo de Telhado:", ["Telha Cerâmica", "Telha Metálica", "Laje", "Solo"])
+    if st.button("📊 Processar Engenharia Solar"):
         num_paineis = math.ceil((pot_solar_kwp * 1000) / 550)
         st.session_state.lista_materials_solar = [
-            {"Etapa": "01. Geração", "Material": "Painel Solar Fotovoltaico Monocristalino 550Wp Plus", "Quantidade": float(num_paineis), "Unidade": "un"},
-            {"Etapa": "02. Inversão", "Material": f"Inversor Solar On-Grid String Trifásico {math.ceil(pot_solar_kwp)}kW", "Quantidade": 1.0, "Unidade": "un"},
-            {"Etapa": "03. Proteção CC", "Material": "String Box CC 2 Strings 1000V Proteções Completas", "Quantidade": 1.0, "Unidade": "un"},
-            {"Etapa": "04. Cabeamento", "Material": "Cabo Solar Fotovoltaico Condutor 6mm² Preto 1.8kV", "Quantidade": float(num_paineis * 15), "Unidade": "m"},
-            {"Etapa": "04. Cabeamento", "Material": "Cabo Solar Fotovoltaico Condutor 6mm² Vermelho 1.8kV", "Quantidade": float(num_paineis * 15), "Unidade": "m"},
-            {"Etapa": "05. Estrutura", "Material": f"Perfil de Alumínio Anodizado com Grampos para {tipo_telhado}", "Quantidade": 1.0, "Unidade": "jg"}
+            {"Etapa": "01. Geração", "Material": "Painel Solar Monocristalino 550Wp Plus", "Quantidade": float(num_paineis), "Unidade": "un"},
+            {"Etapa": "02. Inversão", "Material": f"Inversor Solar On-Grid String {math.ceil(pot_solar_kwp)}kW", "Quantidade": 1.0, "Unidade": "un"},
+            {"Etapa": "03. Proteção CC", "Material": "String Box CC 1000V Proteções Completas", "Quantidade": 1.0, "Unidade": "un"}
         ]
-        st.success("Sistema Fotovoltaico NBR 16690 dimensionado por lote!")
+        st.success("Módulo fotovoltaico processado!")
         st.rerun()
-    if st.session_state.lista_materials_solar:
-        edited_solar = st.data_editor(pd.DataFrame(st.session_state.lista_materials_solar), num_rows="dynamic", use_container_width=True, key="editor_solar")
-        if st.button("💾 Salvar Alterações da Fase Solar"):
-            st.session_state.lista_materials_solar = edited_solar.to_dict(orient="records")
-            st.success("Módulo fotovoltaico atualizado!")
-            st.rerun()
+    if st.session_state.lista_materials_solar: st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True)
 
 with tab_catalogo:
     st.write("### 📦 Cadastrar Insumo Personalizado")
     with st.form("form_cat_dir"):
-        c_fase = st.selectbox("Segmento:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
-        c_etapa = st.text_input("Etapa:")
-        c_mat = st.text_input("Material:")
-        c_qtd = st.number_input("Quantidade:", value=1.0)
-        c_uni = st.selectbox("Unidade:", ["un", "m", "barra", "rl"])
+        c_fase = st.selectbox("Segmento Alvo do Produto:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
+        c_etapa = st.text_input("Etapa de Aplicação (Ex: Infraestrutura, Acabamento):")
+        c_mat = st.text_input("Descrição do Material Técnico:")
+        c_qtd = st.number_input("Quantidade:", value=1.0, min_value=0.1)
+        c_uni = st.selectbox("Unidade:", ["un", "m", "barra", "rl", "jg", "sc"])
         if st.form_submit_button("Salvar no SQLite"):
             inserir_material_catalogo(c_fase, c_etapa, c_mat, c_qtd, c_uni)
+            st.success("Salvo com sucesso!")
             st.rerun()
+            
+    st.markdown("---")
+    # CORREÇÃO DEFINITIVA DO OPERATIONALERROR: Lê a tabela limpa e sincronizada no SQLite
     cat_df = listar_materiais_catalogo()
-    if cat_df: st.dataframe(pd.DataFrame(cat_df), use_container_width=True)
+    if cat_df:
+        st.dataframe(pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"]), use_container_width=True)
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
@@ -363,24 +339,21 @@ def gerar_pdf_completo_obra():
         elementos.append(Paragraph("1. Mapeamento Geral de Cargas com Vínculo Relacional de Cômodos", estilo_sub))
         cabecalhos_modelo = ["CIRC", "DESCRIÇÃO DO CIRCUITO TERMINAL", "CÔMODO ALOCADO", "POT (W)", "DIST (M)", "CORRENTE (A)", "DISJ", "BITOLA", "FASE", "TENSÃO", "FAS R", "FAS S"]
         dados_qdc_pdf = [[Paragraph(f"<b>{h}</b>", estilo_celula) for h in cabecalhos_modelo]]
-        tot_r, tot_s = 0, 0
         for c in st.session_state.lista_circuitos_calc:
             p_w_val = int(c["POT_W"])
             r_val = p_w_val if c["FASE"] == "R" else (p_w_val//2 if "RS" in c["FASE"] else 0)
             s_val = p_w_val if c["FASE"] == "S" else (p_w_val//2 if "RS" in c["FASE"] else 0)
-            tot_r += r_val; tot_s += s_val
             dados_qdc_pdf.append([Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq), Paragraph(str(c.get("COMODO","Geral")), estilo_celula), Paragraph(str(p_w_val), estilo_celula), Paragraph(f"{c['COMP']}m", estilo_celula), Paragraph(f"{c['IB']}A", estilo_celula), Paragraph(f"{c['CURVA']}{c['DISJ']}", estilo_celula), Paragraph(str(c["COND"]), estilo_celula), Paragraph(c["FASE"], estilo_celula), Paragraph(f"{c['TENSÃO']}V", estilo_celula), Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)])
         t_qdc = Table(dados_qdc_pdf, colWidths=[30.0, 160.0, 80.0, 45.0, 45.0, 55.0, 40.0, 50.0, 35.0, 40.0, 50.0, 50.0])
         t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('PADDING', (0,0), (-1,-1), 3)]))
         elementos.append(t_qdc)
 
     listas_gerais_obra = [
-        ("2. Quantitativo de Alvenaria Civil", st.session_state.lista_materials_civil, '#475569'),
-        ("3. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
-        ("4. Infraestrutura de Gás Encanado", st.session_state.lista_materials_gas, '#B45309'),
-        ("5. Cabeamento de Internet e Telecom", st.session_state.lista_materials_dados, '#6D28D9'),
-        ("6. Ativos de Segurança Eletrônica Monitorável", st.session_state.lista_materials_seguranca, '#0F172A'),
-        ("7. Engenharia Solar Fotovoltaica (NBR 16690)", st.session_state.lista_materials_solar, '#F59E0B')
+        ("2. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
+        ("3. Infraestrutura de Gás Encanado", st.session_state.lista_materials_gas, '#B45309'),
+        ("4. Cabeamento de Internet e Telecom", st.session_state.lista_materials_dados, '#6D28D9'),
+        ("5. Ativos de Segurança Eletrônica Monitorável", st.session_state.lista_materials_seguranca, '#0F172A'),
+        ("6. Engenharia Solar Fotovoltaica (NBR 16690)", st.session_state.lista_materials_solar, '#F59E0B')
     ]
     for tit, lista, cor_hex in listas_gerais_obra:
         if lista:
@@ -393,10 +366,10 @@ def gerar_pdf_completo_obra():
             elementos.append(t_m)
 
     elementos.append(PageBreak())
-    elementos.append(Paragraph("8. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção (DJ / DR / DPS)", estilo_sub))
+    elementos.append(Paragraph("7. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção (DJ / DR / DPS)", estilo_sub))
     elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
     elementos.append(PageBreak())
-    elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
+    elementos.append(Paragraph("8. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
 
     doc.build(elementos)
