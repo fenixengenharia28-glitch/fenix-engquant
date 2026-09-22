@@ -12,7 +12,6 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 
 # Configuração primária obrigatória do Streamlit
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
-
 # --- ENGINE DO BANCO DE DADOS PERSISTENTE LOCAL ---
 def init_db():
     conn = sqlite3.connect("fenix_database.db")
@@ -42,11 +41,10 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row: return json.loads(row)
+        if row and row[0]: return json.loads(row[0])
     except Exception:
         return valor_padrao
     return valor_padrao
-
 def inserir_cliente_db(nome, endereco, city_uf):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
@@ -121,7 +119,6 @@ if "db_sync_completo" not in st.session_state:
     st.session_state.lista_circuitos_calc = carregar_dados_permanentes("circuitos", [])
     st.session_state.comodos = carregar_dados_permanentes("comodos", [])
     st.session_state.db_sync_completo = True
-
 def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, fca=0.70, fct=1.0):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.80
     potencia_va = potencia / fp
@@ -150,7 +147,7 @@ def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, 
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
         
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= (iz_cabo * fca * fct):
@@ -190,9 +187,8 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
         d.add(String(315, y + 5, f"{c.get('CURVA','C')}{c.get('DISJ','20A')}", fontSize=7, fontName='Helvetica-Bold'))
         d.add(Line(335, y, 365, y, strokeColor=colors.black, strokeWidth=1.2))
         d.add(String(340, y + 4, str(c.get('COND','2.5 mm²')), fontSize=6.5, fillColor=colors.HexColor('#2563EB'), fontName='Helvetica-Bold'))
-        d.add(String(375, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:20]} - {c.get('COMODO','Geral')}", fontSize=7.5))
+        d.add(String(375, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:20]}", fontSize=7.5))
     return d
-
 def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
     n_circ = len(circuitos_list) if circuitos_list else 1
     altura_d = max(260, (n_circ * 35) + 140)
@@ -312,7 +308,6 @@ with tab_civil:
     if st.session_state.comodos: st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
 
     st.markdown("---")
-    # DEMANDA ATENDIDA: Modo de cálculo Dinâmico Civil. Mudar zera a prancha.
     modo_civil = st.radio("Seletor do Modo de Escopo Civil:", ["Cálculo Global por Área (m²)", "Levantamento por Cômodos Cadastrados"], horizontal=True)
     
     if modo_civil == "Cálculo Global por Área (m²)":
@@ -326,10 +321,8 @@ with tab_civil:
             ]
             st.rerun()
     else:
-        # Se escolheu cômodos, força zerar o cálculo global da área anterior
         st.session_state.lista_materials_civil = []
         if st.session_state.comodos:
-            st.write("📊 Levantamento ativo baseado nos cômodos da tabela superior.")
             area_acumulada = sum(float(c["Comprimento"]) * float(c["Largura"]) for c in st.session_state.comodos)
             st.metric("Área Linear Acumulada dos Ambientes", f"{round(area_acumulada, 2)} m²")
             if st.button("📊 Processar Insumos por Prancha de Cômodos"):
@@ -339,10 +332,8 @@ with tab_civil:
                 ]
                 st.rerun()
     if st.session_state.lista_materials_civil: st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True)
-
 with tab_eletrica:
     st.write("### ⚡ Escopo Relacional sob Critério Estruturado MDA (NBR 5410)")
-    # DEMANDA ATENDIDA: Seletor Dinâmico de Cálculo Elétrico. Alternar limpa o estado.
     modo_eletrico = st.radio("Método de Lançamento:", ["Planta Otimizada (Lote Completo)", "Lançamento Manual Individual"], horizontal=True)
     lista_comodos_opcoes = [c["Cômodo"] for c in st.session_state.comodos] if st.session_state.comodos else ["Geral"]
     
@@ -354,17 +345,16 @@ with tab_eletrica:
             ]
             st.session_state.lista_circuitos_calc = []
             for item in planta_modelo:
-                v_tensao = dados_c["fase"]
-                res = dimensionar_circuito_nbr5410_mda(item["POT_W"], v_tensao, item["COMP"], item["DESCRIÇÃO"])
+                res = dimensionar_circuito_nbr5410_mda(item["POT_W"], dados_c["fase"], item["COMP"], item["DESCRIÇÃO"])
                 st.session_state.lista_circuitos_calc.append({
                     "CIRC": item["CIRC"], "DESCRIÇÃO": item["DESCRIÇÃO"], "COMODO": item["COMODO"], "POT_W": int(item["POT_W"]), "POT_VA": res["VA"], "FP": res["FP"],
                     "TIPO": item["TIPO"], "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²",
-                    "FASE": "R", "TENSÃO": int(v_tensao), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": int(item["COMP"]), "DV": res["DV"]
+                    "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": int(item["COMP"]), "DV": res["DV"]
                 })
             salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
             st.rerun()
     else:
-        st.session_state.lista_circuitos_calc = [] # Força limpar o lote automático ao entrar no manual
+        st.session_state.lista_circuitos_calc = []
         with st.form("form_c_sep"):
             m_name = st.text_input("Nome do Circuito:", value="Tomadas TUG")
             m_com = st.selectbox("Cômodo Alvo:", lista_comodos_opcoes)
@@ -372,17 +362,15 @@ with tab_eletrica:
             m_pot = st.number_input("Potência Ativa (W):", value=2200)
             m_met = st.number_input("Metragem Linear (m):", value=15)
             if st.form_submit_button("🔌 Calcular e Inserir"):
-                c_idx = str(len(st.session_state.lista_circuitos_calc) + 1)
                 res = dimensionar_circuito_nbr5410_mda(m_pot, dados_c["fase"], m_met, m_desc)
                 st.session_state.lista_circuitos_calc.append({
-                    "CIRC": c_idx, "DESCRIÇÃO": m_name, "COMODO": m_com, "POT_W": int(m_pot), "POT_VA": res["VA"], "FP": res["FP"], "TIPO": "Monofásico",
+                    "CIRC": "1", "DESCRIÇÃO": m_name, "COMODO": m_com, "POT_W": int(m_pot), "POT_VA": res["VA"], "FP": res["FP"], "TIPO": "Monofásico",
                     "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²", "FASE": "R",
                     "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": int(m_met), "DV": res["DV"]
                 })
                 salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
                 st.rerun()
     if st.session_state.lista_circuitos_calc: st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
-
 with tab_hidraulica:
     m_agua = st.number_input("Metragem Tubo PVC 25mm (m):", value=30)
     if st.button("Calcular Hidráulica"):
@@ -394,7 +382,6 @@ with tab_gas:
     if st.button("Calcular Gás"):
         st.session_state.lista_materials_gas = [{"Etapa": "01. Tubulação", "Material": "Tubo de Cobre 15mm Classe A", "Quantidade": float(m_gas), "Unidade": "m"}]
     if st.session_state.lista_materials_gas: st.dataframe(pd.DataFrame(st.session_state.lista_materials_gas), use_container_width=True)
-
 with tab_dados:
     m_lan = st.number_input("Metragem Cabo LAN Cat6 (m):", value=100)
     if st.button("Calcular Internet"):
@@ -423,11 +410,6 @@ with tab_catalogo:
     if cat_df:
         df_cat = pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"])
         st.dataframe(df_cat, use_container_width=True, hide_index=True)
-        id_mat_op = st.number_input("ID do Material para Remoção:", min_value=1, step=1, key="op_mat_id")
-        if st.button("❌ Remover Material do Catálogo", use_container_width=True):
-            excluir_material_db(id_mat_op)
-            st.success("Item removido!")
-            st.rerun()
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
@@ -436,20 +418,19 @@ def gerar_pdf_completo_obra():
     estilo_sub = ParagraphStyle('S', parent=estilos['Heading2'], fontSize=9.5, textColor=colors.HexColor('#0D9488'), spaceBefore=6, spaceAfter=4, fontName='Helvetica-Bold')
     estilo_celula = ParagraphStyle('Cel', parent=estilos['BodyText'], fontSize=6, leading=7, alignment=1)
     estilo_celula_esq = ParagraphStyle('CelEsq', parent=estilos['BodyText'], fontSize=6, leading=7, alignment=0)
+    estilo_aviso_tit = ParagraphStyle('AT', parent=estilos['Heading3'], fontSize=10, textColor=colors.HexColor('#991B1B'), fontName='Helvetica-Bold', spaceAfter=3)
+    estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=8.5, leading=11, alignment=4, spaceAfter=2)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS (MODELO MDA)</b>", estilo_titulo), Spacer(1, 4)]
     
     lista_cli_local = listar_clientes_db()
-    if lista_cli_local:
-        c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local[0][1], lista_cli_local[0][2], lista_cli_local[0][3]
-    else:
-        c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
+    if lista_cli_local: c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local[0][1], lista_cli_local[0][2], lista_cli_local[0][3]
+    else: c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
         
     dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {c_nome_txt}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {c_end_txt}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {c_cid_txt}", estilo_celula_esq)]]
     t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
-    
     pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc) if st.session_state.lista_circuitos_calc else 5000
     if pot_total_sistema <= dados_c["limite_mono"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Monofásico", "10.0 mm²", "40 A", dados_c["caixa_mono"]
     elif pot_total_sistema <= dados_c["limite_bi"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Bifásico", "16.0 mm²", "63 A", dados_c["caixa_bi"]
@@ -492,7 +473,7 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # Linha final MDA centralizada com sucesso
+        # DEMANDA ATENDIDA: Centralização rigorosa (estilo_celula) de todas as colunas da última linha totalizada
         dados_qdc_pdf.append([
             Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>Carga Acumulada Centralizada</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
             Paragraph(f"<b>{sum_pot_w}W</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula), Paragraph(f"<b>{sum_pot_va}VA</b>", estilo_celula),
@@ -504,7 +485,6 @@ def gerar_pdf_completo_obra():
         t_qdc = Table(dados_qdc_pdf, colWidths=[22.0, 110.0, 60.0, 38.0, 25.0, 42.0, 38.0, 38.0, 42.0, 42.0, 38.0, 38.0, 52.0, 55.0])
         t_qdc.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')), ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 2)]))
         elementos.append(t_qdc)
-
     listas_gerais_obra = [
         ("2. Memorial da Fase Civil", st.session_state.lista_materials_civil, '#475569'),
         ("3. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
@@ -529,6 +509,21 @@ def gerar_pdf_completo_obra():
     elementos.append(PageBreak())
     elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
+
+    # DEMANDA ATENDIDA: Bloco corporativo completo de avisos elétricos de campo para colar no QDC
+    elementos.append(PageBreak())
+    elementos.append(Paragraph("10. Observações Técnicas Normativas (Fixar na Tampa Interna do QDC)", estilo_sub))
+    caviso = [
+        Paragraph("<b>📝 DIRETRIZES DE CAMPO OBRIGATÓRIAS - NBR 5410 & NR-10</b>", estilo_aviso_tit),
+        Spacer(1, 2),
+        Paragraph("• <b>Código Regulamentar de Cores:</b> Condutor Neutro deve ser 🔵 AZUL CLARO. Condutor de Proteção deve ser 🟢 VERDE. Condutores de Fase devem ser ⚫ PRETO ou 🔴 VERMELHO.", estilo_aviso_corpo),
+        Paragraph("• <b>Dispositivos de Proteção Ativos:</b> É proibido anular o Interruptor Diferencial Residual (IDR) de 30mA e os Supressores de Surto (DPS) de 45kA classe II.", estilo_aviso_corpo),
+        Paragraph("• <b>Identificação de Circuitos:</b> Todas as chaves disjuntoras devem receber etiquetas correspondentes à prancha MDA sob risco de interdição técnica.", estilo_aviso_corpo),
+        Paragraph("• <b>Torque e Reaperto Técnico:</b> Realizar inspeção semestral de torque nos bornes de conexão dos disjuntores para evitar pontos quentes e perdas por efeito Joule.", estilo_aviso_corpo)
+    ]
+    t_av = Table([[caviso]], colWidths=[740.0])
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 8)]))
+    elementos.append(t_av)
 
     doc.build(elementos)
     buffer.seek(0)
