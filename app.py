@@ -7,7 +7,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-# Importação dos módulos locais soltos na mesma pasta raiz
+# Importação dos módulos locais soltos na mesma pasta raiz do projeto
 from db_functions import *
 from calculus_engine import *
 # Configuração primária obrigatória da janela do navegador
@@ -28,16 +28,17 @@ def gerar_pdf_completo_obra():
     cabo_padrao = "16 mm²"
     dj_padrao = "Disjuntor Geral 50A"
 
-    listas_gerais_obra = [
-        ("2. Memorial da Fase Civil", st.session_state.lista_materials_civil, '#475569'),
-        ("3. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
-        ("4. Tubulações de Gás Encanado", st.session_state.lista_materials_gas, '#B45309'),
-        ("5. Rede de Internet e Dados", st.session_state.lista_materials_dados, '#6D28D9'),
-        ("6. Ativos de Segurança Eletrônica", st.session_state.lista_materials_seguranca, '#0F172A'),
-        ("7. Engenharia Solar Fotovoltaica (NBR 16690)", st.session_state.lista_materials_solar, '#F59E0B')
+    # CARREGA OS DADOS DIRETAMENTE DO BANCO DE DADOS PARA GARANTIR A PERSISTÊNCIA NO PDF
+    disciplinas_pdf = [
+        ("2. Memorial da Fase Civil", listar_materiais_calculados_fase("Civil"), '#475569'),
+        ("3. Lote Hidráulico e Redes de Esgoto", listar_materiais_calculados_fase("Hidráulica"), '#1E40AF'),
+        ("4. Tubulações de Gás Encanado", listar_materiais_calculados_fase("Gás Encanado"), '#B45309'),
+        ("5. Rede de Internet e Dados", listar_materiais_calculados_fase("Internet/Dados"), '#6D28D9'),
+        ("6. Ativos de Segurança Eletrônica", listar_materiais_calculados_fase("Segurança"), '#0F172A'),
+        ("7. Engenharia Solar Fotovoltaica (NBR 16690)", listar_materiais_calculados_fase("Energia Solar"), '#F59E0B')
     ]
     
-    for tit, lista, col_hex in listas_gerais_obra:
+    for tit, lista, col_hex in disciplinas_pdf:
         if lista:
             elementos.append(PageBreak())
             elementos.append(Paragraph(tit, estilo_sub))
@@ -48,13 +49,16 @@ def gerar_pdf_completo_obra():
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(col_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
 
+    # BUSCA OS CIRCUITOS PERMANENTES DIRETAMENTE DO BANCO DE DADOS
+    circuitos_salvos = listar_circuitos_permanentes()
+
     elementos.append(PageBreak())
     elementos.append(Paragraph("8. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção", estilo_sub))
-    elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
+    elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, circuitos_salvos))
     
     elementos.append(PageBreak())
     elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
-    elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
+    elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, circuitos_salvos))
 
     elementos.append(PageBreak())
     elementos.append(Paragraph("10. Observações Técnicas Normativas (Fixar na Tampa Interna do QDC)", estilo_sub))
@@ -166,7 +170,7 @@ def main():
     
     st.session_state["active_tabs_fenix"] = global_tabs
     # Recupera a referência das abas criadas no bloco anterior
-    tab_civil = st.session_state["active_tabs_fenix"][0]
+    tab_civil = st.session_state["active_tabs_fenix"]
 
     with tab_civil:
         st.write("### 🧱 Planta de Cômodos (Inserir / Alterar / Remover)")
@@ -212,49 +216,76 @@ def main():
                     {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": 4.8, "Unidade": "m³"},
                     {"Etapa": "03. Estrutura", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"}
                 ]
+                salvar_materiais_calculados_fase("Civil", st.session_state.lista_materials_civil)
                 st.rerun()
         else:
+            # Sincroniza o estado de exibição buscando os dados permanentes guardados no banco
+            st.session_state.lista_materials_civil = listar_materiais_calculados_fase("Civil")
+            
             if lista_comodos_fisicos:
-                area_acumulada = sum(float(row_c[2]) * float(row_c[3]) for row_c in lista_comodos_fisicos)
-                perimetro_acumulado = sum((float(row_c[2]) * 2) + (float(row_c[3]) * 2) for row_c in lista_comodos_fisicos)
+                area_acumulada = sum(float(row[2]) * float(row[3]) for row in lista_comodos_fisicos)
+                perimetro_acumulado = sum((float(row[2]) * 2) + (float(row[3]) * 2) for row in lista_comodos_fisicos)
                 num_comodos = len(lista_comodos_fisicos)
-                st.metric("Área Computada dos Ambientes", f"{round(area_acumulada, 2)} m²")
+                
+                st.metric("Área Total Calculada dos Ambientes", f"{round(area_acumulada, 2)} m²")
+                st.metric("Perímetro Total Linear Cadastrado", f"{round(perimetro_acumulado, 2)} m")
+                
                 if st.button("📊 Processar Insumos por Prancha de Cômodos"):
-                    st.session_state.lista_materials_civil = []
-                    st.session_state.lista_circuitos_calc = []
-                    st.session_state.lista_materials_hidraulicos = []
-                    st.session_state.lista_materials_gas = []
-                    st.session_state.lista_materials_dados = []
-                    st.session_state.lista_materials_seguranca = []
-                    st.session_state.lista_materials_solar = []
+                    civil_temp, hidra_temp, gas_temp = [], [], []
+                    dados_temp, seg_temp, solar_temp = [], [], []
+                    
                     itens_catalogo = listar_materiais_catalogo()
                     for item in itens_catalogo:
                         fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item[1], item[2], item[3], float(item[4]), item[5]
+                        
                         if fase_cat == "Civil":
-                            st.session_state.lista_materials_civil.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(area_acumulada * fat_cat)), "Unidade": uni_cat})
+                            civil_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(area_acumulada * fat_cat)), "Unidade": uni_cat})
                         elif fase_cat == "Hidráulica":
-                            st.session_state.lista_materials_hidraulicos.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(perimetro_acumulado * fat_cat)), "Unidade": uni_cat})
+                            hidra_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(perimetro_acumulado * fat_cat)), "Unidade": uni_cat})
                         elif fase_cat == "Gás Encanado":
-                            st.session_state.lista_materials_gas.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
+                            gas_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
                         elif fase_cat == "Internet/Dados":
-                            st.session_state.lista_materials_dados.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
+                            dados_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
                         elif fase_cat == "Segurança":
-                            st.session_state.lista_materials_seguranca.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
+                            seg_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
                         elif fase_cat == "Energia Solar":
-                            st.session_state.lista_materials_solar.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(fat_cat)), "Unidade": uni_cat})
+                            solar_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(fat_cat)), "Unidade": uni_cat})
+                    
+                    # SALVAMENTO DEFINITIVO DE TODAS AS DISCIPLINAS NO BANCO DE DADOS LOCAL
+                    salvar_materiais_calculados_fase("Civil", civil_temp)
+                    salvar_materiais_calculados_fase("Hidráulica", hidra_temp)
+                    salvar_materiais_calculados_fase("Gás Encanado", gas_temp)
+                    salvar_materiais_calculados_fase("Internet/Dados", dados_temp)
+                    salvar_materiais_calculados_fase("Segurança", seg_temp)
+                    salvar_materiais_calculados_fase("Energia Solar", solar_temp)
+                    
+                    # Atualiza variáveis na memória volátil da sessão atual
+                    st.session_state.lista_materials_civil = civil_temp
+                    st.session_state.lista_materials_hidraulicos = hidra_temp
+                    st.session_state.lista_materials_gas = gas_temp
+                    st.session_state.lista_materials_dados = dados_temp
+                    st.session_state.lista_materials_seguranca = seg_temp
+                    st.session_state.lista_materials_solar = solar_temp
+                    
+                    # Limpa e pré-dimensiona os circuitos automáticos de base do modo geral
+                    limpar_todos_circuitos_permanentes()
                     planta_modelo = [
-                        {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO", "COMODO": "Geral", "POT_W": int(math.ceil(area_acumulada * 15))},
-                        {"CIRC": "2", "DESCRIÇÃO": "TOMADAS TUG", "COMODO": "Geral", "POT_W": int(math.ceil(num_comodos * 600))}
+                        {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(area_acumulada * 15))},
+                        {"CIRC": "2", "DESCRIÇÃO": "TOMADAS TUG GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(num_comodos * 600))}
                     ]
                     for item_el in planta_modelo:
                         res = dimensionar_circuito_nbr5410_mda(item_el["POT_W"], dados_c["fase"], 15, item_el["DESCRIÇÃO"])
-                        st.session_state.lista_circuitos_calc.append({
+                        c_dados = {
                             "CIRC": item_el["CIRC"], "DESCRIÇÃO": item_el["DESCRIÇÃO"], "COMODO": item_el["COMODO"], "POT_W": int(item_el["POT_W"]), "POT_VA": res["VA"], "FP": res["FP"],
                             "TIPO": "Monofásico", "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²",
                             "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": 15, "DV": res["DV"]
-                        })
-                    salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
+                        }
+                        inserir_circuito_permanente(c_dados)
+                    
+                    st.session_state.lista_circuitos_calc = listar_circuitos_permanentes()
+                    st.success("Cálculo completo de todas as pranchas e circuitos estruturado com sucesso no banco!")
                     st.rerun()
+                    
         if st.session_state.lista_materials_civil: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True, hide_index=True)
     # Recupera as referências das demais abas mapeadas no Bloco 4
@@ -268,9 +299,12 @@ def main():
         if modo_eletrica != st.session_state.modo_eletrica_anterior:
             st.session_state.modo_eletrica_anterior = modo_eletrica
             if modo_eletrica == "Apenas 1 Circuito / Circuitos Customizados":
+                limpar_todos_circuitos_permanentes()
                 st.session_state.lista_circuitos_calc = []
-                salvar_dados_permanentes("circuitos", [])
                 st.rerun()
+
+        # Atualiza a lista da memória com os dados salvos de forma fixa no banco de dados
+        st.session_state.lista_circuitos_calc = listar_circuitos_permanentes()
 
         if modo_eletrica == "Apenas 1 Circuito / Circuitos Customizados":
             st.markdown("#### ➕ Adicionar Circuito à Prancha")
@@ -288,15 +322,16 @@ def main():
                 if st.form_submit_button("💾 Adicionar Circuito"):
                     if c_num_in and c_desc_in:
                         res = dimensionar_circuito_nbr5410_mda(c_pot_in, dados_c["fase"], c_com_in, c_desc_in)
-                        st.session_state.lista_circuitos_calc.append({
+                        c_dados = {
                             "CIRC": c_num_in, "DESCRIÇÃO": c_desc_in.upper(), "COMODO": c_amb_in if c_amb_in else "Geral",
                             "POT_W": int(c_pot_in), "POT_VA": res["VA"], "FP": res["FP"], "TIPO": "Monofásico",
                             "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²",
                             "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"],
                             "COMP": c_com_in, "DV": res["DV"]
-                        })
-                        salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
-                        st.success(f"Circuito {c_num_in} adicionado!")
+                        }
+                        # GRAVAÇÃO DIRETA E DEFINITIVA NO BANCO DE DADOS
+                        inserir_circuito_permanente(c_dados)
+                        st.success(f"Circuito {c_num_in} adicionado e salvo permanentemente!")
                         st.rerun()
 
             if st.session_state.lista_circuitos_calc:
@@ -306,45 +341,50 @@ def main():
                     opcoes_circ = [circ["CIRC"] for circ in st.session_state.lista_circuitos_calc]
                     circ_para_remover = st.selectbox("Identificação para Excluir:", opcoes_circ)
                     if st.button("🗑️ Remover Circuito"):
-                        st.session_state.lista_circuitos_calc = [c for c in st.session_state.lista_circuitos_calc if c["CIRC"] != circ_para_remover]
-                        salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
-                        st.success("Circuito removido!")
+                        # EXCLUSÃO DIRETA E DEFINITIVA NO BANCO DE DADOS
+                        excluir_circuito_permanente(circ_para_remover)
+                        st.success("Circuito removido do banco de dados!")
                         st.rerun()
 
         if st.session_state.lista_circuitos_calc:
-            st.markdown("#### 📋 Prancha MDA - Circuitos Ativos")
+            st.markdown("#### 📋 Prancha MDA - Circuitos Ativos (Salvos no Banco)")
             st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum circuito programado ou calculado até o momento.")
     with tab_hidraulica:
+        st.session_state.lista_materials_hidraulicos = listar_materiais_calculados_fase("Hidráulica")
         if st.session_state.lista_materials_hidraulicos: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_hidraulicos), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum material hidráulico processado até o momento.")
+            st.info("Nenhum material hidráulico processado até o momento. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_gas:
+        st.session_state.lista_materials_gas = listar_materiais_calculados_fase("Gás Encanado")
         if st.session_state.lista_materials_gas: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_gas), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum material de gás encanado processado até o momento.")
+            st.info("Nenhum material de gás encanado processado até o momento. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_dados:
+        st.session_state.lista_materials_dados = listar_materiais_calculados_fase("Internet/Dados")
         if st.session_state.lista_materials_dados: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_dados), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum ativo de internet ou dados cadastrado até o momento.")
+            st.info("Nenhum ativo de internet ou dados cadastrado até o momento. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_seguranca:
+        st.session_state.lista_materials_seguranca = listar_materiais_calculados_fase("Segurança")
         if st.session_state.lista_materials_seguranca: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_seguranca), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum material de segurança eletrônica listado até o momento.")
+            st.info("Nenhum material de segurança eletrônica listado até o momento. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_solar:
+        st.session_state.lista_materials_solar = listar_materiais_calculados_fase("Energia Solar")
         if st.session_state.lista_materials_solar: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum componente solar fotovoltaico gerado até o momento.")
+            st.info("Nenhum componente solar fotovoltaico gerado até o momento. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_catalogo:
         cat_df = listar_materiais_catalogo()
