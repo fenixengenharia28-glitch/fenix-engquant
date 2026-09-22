@@ -5,22 +5,19 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib import colors
-import os  # Biblioteca necessária para gerenciar arquivos no servidor
+import os
 
 # Importação dos módulos locais soltos na mesma pasta raiz do projeto
 from db_functions import *
 from calculus_engine import *
 from style_utils import *
 
-# ==============================================================================
-# ROTINA AUTOMÁTICA DE APAGAR O BANCO DE DADOS ANTIGO PARA ADICIONAR AS NOVAS COLUNAS
-# ==============================================================================
+# Garante a limpeza automática de bancos corrompidos ou antigos no deploy
 if os.path.exists("fenix_database.db"):
     try:
         os.remove("fenix_database.db")
     except Exception:
         pass
-# ==============================================================================
 
 # Configuração primária obrigatória da janela do navegador
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
@@ -47,7 +44,6 @@ def gerar_pdf_completo_obra():
     ]
     
     for chave_fase, titulo_aba, col_hex in config_disciplinas:
-        # Recupera dinamicamente qual modo de cálculo o engenheiro definiu para cada aba específica
         chave_modo = f"modo_calculo_{chave_fase.lower().replace('/', '_')}"
         modo_ativo = st.session_state.get(chave_modo, "Cálculo Global")
         
@@ -57,13 +53,14 @@ def gerar_pdf_completo_obra():
             elementos.append(PageBreak())
             elementos.append(Paragraph(f"{titulo_aba} ({modo_ativo})", estilo_sub))
             tbl_d = [[Paragraph("<b>Etapa</b>", estilo_celula), Paragraph("<b>Insumo Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
-            for mat in lista_materials: 
+            for mat in lista_materiais: 
                 tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
             
             # Larguras estritas somando 535 pontos (limite real da folha A4 Portrait)
             t_m = Table(tbl_d, colWidths=[100.0, 275.0, 90.0, 70.0])
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(col_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
+
     circuitos_salvos = listar_circuitos_permanentes()
 
     elementos.append(PageBreak())
@@ -180,13 +177,22 @@ def main():
     concessionaria_sel = st.selectbox("Escolha a Concessionária de Energia Alvo do Brasil:", list(concessionarias_locais.keys()))
     dados_c = concessionarias_locais[concessionaria_sel]
 
-    # Declaração do contêiner multiabas
+    # Criação do contêiner multiabas
     global_tabs = st.tabs([
         "🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", 
         "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"
     ])
 
-    tab_civil = global_tabs
+    # CORRIGIDO: Atribuição explícita por índices numéricos estáveis do array global_tabs para eliminar o TypeError
+    tab_civil = global_tabs[0]
+    tab_eletrica = global_tabs[1]
+    tab_hidraulica = global_tabs[2]
+    tab_gas = global_tabs[3]
+    tab_dados = global_tabs[4]
+    tab_seguranca = global_tabs[5]
+    tab_solar = global_tabs[6]
+    tab_catalogo = global_tabs[7]
+    tab_pdf = global_tabs[8]
 
     with tab_civil:
         st.write("### 🧱 Planta de Cômodos (Inserir / Alterar / Remover)")
@@ -222,7 +228,6 @@ def main():
                     st.rerun()
                     
         st.markdown("---")
-        # Registra e isola o modo de cálculo exclusivo para a fase civil
         modo_civil = st.radio("Seletor do Modo de Escopo Civil:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_civil_radio")
         st.session_state["modo_calculo_civil"] = modo_civil
         
@@ -240,7 +245,7 @@ def main():
                 st.rerun()
         else:
             if lista_comodos_fisicos:
-                area_acumulada = sum(float(row) * float(row) for row in lista_comodos_fisicos)
+                area_acumulada = sum(float(row[2]) * float(row[3]) for row in lista_comodos_fisicos)
                 st.metric("Área Civil Computada (Cômodos)", f"{round(area_acumulada, 2)} m²")
                 
                 if st.button("📊 Processar Insumos por Cômodo - Civil"):
@@ -261,8 +266,6 @@ def main():
             st.dataframe(pd.DataFrame(materials_fase_civil), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum material processado para esta modalidade civil.")
-    tab_eletrica = global_tabs
-
     with tab_eletrica:
         st.write("### ⚡ Escopo e Gestão de Circuitos")
         modo_eletrica = st.radio("Selecione a Abrangência do Cálculo:", ["Casa Toda", "Apenas 1 Circuito / Circuitos Customizados"], horizontal=True, key="switch_modo_ele")
@@ -315,7 +318,7 @@ def main():
                         st.rerun()
 
         if modo_eletrica == "Casa Toda" and not st.session_state.lista_circuitos_calc and lista_comodos_fisicos:
-            area_acumulada = sum(float(row) * float(row) for row in lista_comodos_fisicos)
+            area_acumulada = sum(float(row[2]) * float(row[3]) for row in lista_comodos_fisicos)
             num_comodos = len(lista_comodos_fisicos)
             planta_modelo = [
                 {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(area_acumulada * 15))},
@@ -336,9 +339,6 @@ def main():
             st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum circuito programado ou calculado até o momento.")
-    tab_hidraulica = global_tabs
-    tab_gas = global_tabs
-
     with tab_hidraulica:
         st.write("### 🚰 Escopo e Cubagem Hidráulica")
         modo_hidra = st.radio("Seletor do Modo de Escopo Hidráulico:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_hidra_radio")
@@ -356,7 +356,7 @@ def main():
                 st.rerun()
         else:
             if lista_comodos_fisicos:
-                perimetro_acumulado = sum((float(row) * 2) + (float(row) * 2) for row in lista_comodos_fisicos)
+                perimetro_acumulado = sum((float(row[2]) * 2) + (float(row[3]) * 2) for row in lista_comodos_fisicos)
                 st.metric("Perímetro Linear Acumulado (Cômodos)", f"{round(perimetro_acumulado, 2)} m")
                 
                 if st.button("📊 Processar Insumos por Cômodo - Hidráulica"):
@@ -396,7 +396,7 @@ def main():
         else:
             if lista_comodos_fisicos:
                 num_comodos = len(lista_comodos_fisicos)
-                st.metric("Total de Ambientes Cadastrados", f"{num_comodos} cômodos")
+                st.metric("Total de Ambientes Cadastrados (Gás)", f"{num_comodos} cômodos")
                 
                 if st.button("📊 Processar Insumos por Cômodo - Gás"):
                     gas_temp = []
@@ -416,8 +416,6 @@ def main():
         materials_fase_gas = listar_materiais_calculados_fase("Gás Encanado", modo_gas)
         if materials_fase_gas:
             st.dataframe(pd.DataFrame(materials_fase_gas), use_container_width=True, hide_index=True)
-    tab_dados = global_tabs
-
     with tab_dados:
         st.write("### 🌐 Escopo e Cubagem de Internet e Redes")
         modo_dados = st.radio("Seletor do Modo de Escopo de Redes:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_dados_radio")
@@ -456,11 +454,6 @@ def main():
         materials_fase_dados = listar_materiais_calculados_fase("Internet/Dados", modo_dados)
         if materials_fase_dados:
             st.dataframe(pd.DataFrame(materials_fase_dados), use_container_width=True, hide_index=True)
-    tab_seguranca = global_tabs
-    tab_solar = global_tabs
-    tab_catalogo = global_tabs
-    tab_pdf = global_tabs
-
     with tab_seguranca:
         st.write("### 🛡️ Escopo e Cubagem de Segurança Eletrônica")
         modo_seg = st.radio("Seletor do Modo de Escopo de Segurança:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_seg_radio")
