@@ -42,7 +42,7 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row: return json.loads(row)
+        if row and row[0]: return json.loads(row[0])
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -170,7 +170,7 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
     altura_d = max(240, (n_circ * 30) + 130)
     d = Drawing(720, altura_d)
     d.add(Line(20, altura_d - 40, 90, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(20, altura_d - 32, f"Rede BT Ramal: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
+    d.add(String(20, altura_d - 32, f"Ramal BT: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
     d.add(Rect(90, altura_d - 52, 45, 24, fillColor=colors.HexColor('#EFF6FF'), strokeColor=colors.black, strokeWidth=1.5))
     d.add(String(95, altura_d - 44, "DJ Geral", fontSize=7, fontName='Helvetica-Bold'))
     d.add(String(95, altura_d - 51, f"{dj_pad}", fontSize=6.5, fontName='Helvetica'))
@@ -336,7 +336,6 @@ with tab_civil:
                 ]
                 st.rerun()
     if st.session_state.lista_materials_civil: st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True)
-
 with tab_eletrica:
     st.write("### ⚡ Escopo Relacional sob Critério Estruturado MDA (NBR 5410)")
     modo_eletrico = st.radio("Método de Lançamento:", ["Planta Otimizada (Lote Completo)", "Lançamento Manual Individual"], horizontal=True)
@@ -401,15 +400,13 @@ with tab_seguranca:
     if st.session_state.lista_materials_seguranca: st.dataframe(pd.DataFrame(st.session_state.lista_materials_seguranca), use_container_width=True)
 
 with tab_solar:
-    pot_solar_kwp = st.number_input("Potência Total Demandada do Sistema Fotovoltaico (kWp):", min_value=1.0, value=5.5)
+    pot_solar_kwp = st.number_input("Potência Total Demandada do Sistema (kWp):", min_value=1.0, value=5.5)
     if st.button("📊 Processar Engenharia Solar"):
         num_paineis = math.ceil((pot_solar_kwp * 1000) / 550)
         st.session_state.lista_materials_solar = [
-            {"Etapa": "01. Geração Solar Fotovoltaica", "Material": "Painel Solar Monocristalino 550Wp Plus NBR 16690", "Quantidade": float(num_paineis), "Unidade": "un"},
-            {"Etapa": "02. Inversão e Conversão", "Material": f"Inversor Solar On-Grid String {math.ceil(pot_solar_kwp)}kW", "Quantidade": 1.0, "Unidade": "un"},
-            {"Etapa": "03. Módulo de Proteção CC", "Material": "String Box CC 1000V com DPS e Chave Seccionadora Integrada", "Quantidade": 1.0, "Unidade": "un"}
+            {"Etapa": "01. Geração", "Material": "Painel Solar Monocristalino 550Wp Plus", "Quantidade": float(num_paineis), "Unidade": "un"},
+            {"Etapa": "02. Inversão", "Material": f"Inversor Solar On-Grid String {math.ceil(pot_solar_kwp)}kW", "Quantidade": 1.0, "Unidade": "un"}
         ]
-        st.success("Módulo de Engenharia Solar Fotovoltaica NBR 16690 processado por lote!")
         st.rerun()
     if st.session_state.lista_materials_solar: st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True)
 
@@ -451,7 +448,7 @@ def gerar_pdf_completo_obra():
         [Paragraph("Norma Concessionária Alvo", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
         [Paragraph("Tipo de Fornecimento Entrada", estilo_celula), Paragraph(f"{tipo_entrada} - ({detalhe_caixa})", estilo_celula_esq)],
         [Paragraph("Cabo Geral Ramal BT", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
-        [Paragraph("Disjuntor Geral Proteção", estilo_celula), Paragraph(dj_padrao, strokeColor=colors.black)]
+        [Paragraph("Disjuntor Geral Proteção", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)]
     ]
     t_pad = Table(dados_padrao_pdf, colWidths=[240.0, 510.0])
     t_pad.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0D9488')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
@@ -460,37 +457,30 @@ def gerar_pdf_completo_obra():
     if st.session_state.lista_circuitos_calc:
         elementos.append(PageBreak())
         elementos.append(Paragraph("1. Mapeamento de Cargas e Prancha Computacional Base MDA (NBR 5410)", estilo_sub))
-        
-        # Cabeçalho estruturado em duas linhas refletindo perfeitamente o modelo técnico solicitado
         cabecalhos_mda = [
             ["CIRC", "LOCAL", "DESCRIÇÃO", "POT.\nILUM.(VA)", "TOMADAS", "", "", "POT. ESP.\n(VA)", "POT.\n(W)", "POT.\n(VA)", "DEMANDA\n(%)", "FAT. POT\n(%)", "CORRENTE\nPROJ. (A)", "FASES", "DISJUNTOR", "", "COND.\n(MM²)", "TENSÃO\n(V)", "CARGAS (VA)", "", ""],
             ["", "", "", "", "100VA", "600VA", "1000VA", "", "", "", "", "", "", "", "In", "CURVA", "", "", "R", "S", "T"]
         ]
-        
         dados_qdc_pdf = []
         for linha_h in cabecalhos_mda:
             dados_qdc_pdf.append([Paragraph(f"<b>{h.replace('\n', '<br/>')}</b>", estilo_celula) for h in linha_h])
         
         sum_pot_w, sum_pot_va, sum_ib = 0, 0, 0
         tot_r, tot_s, tot_t = 0, 0, 0
-        
         for idx, c in enumerate(st.session_state.lista_circuitos_calc):
             p_w = int(c["POT_W"])
             p_va_val = c.get("POT_VA", p_w)
             sum_pot_w += p_w; sum_pot_va += p_va_val
             sum_ib += c["IB"]
-            
             fase_ativa = c.get("FASE", "R")
             r_val = p_va_val if fase_ativa == "R" else (p_va_val//2 if "RS" in fase_ativa else 0)
             s_val = p_va_val if fase_ativa == "S" else (p_va_val//2 if "RS" in fase_ativa else 0)
             t_val = p_va_val if fase_ativa == "T" else 0
             tot_r += r_val; tot_s += s_val; tot_t += t_val
-            
             is_ilum = "ILUM" in str(c["DESCRIÇÃO"]).upper()
             t100 = str(p_va_val // 100) if (not is_ilum and p_w <= 600) else "0"
             t600 = str(p_w // 600) if ("TUG" in str(c["DESCRIÇÃO"]).upper() and p_w > 600) else "0"
             t_esp = str(p_w) if ("TUE" in str(c["DESCRIÇÃO"]).upper()) else "0"
-            
             dados_qdc_pdf.append([
                 Paragraph(str(c["CIRC"]), estilo_celula), Paragraph("QDC1", estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq),
                 Paragraph(str(p_va_val) if is_ilum else "0", estilo_celula), Paragraph(t100, estilo_celula), Paragraph(t600, estilo_celula), Paragraph("0", estilo_celula),
@@ -502,7 +492,7 @@ def gerar_pdf_completo_obra():
                 Paragraph(str(r_val), estilo_celula), Paragraph(str(s_val), estilo_celula), Paragraph(str(t_val), estilo_celula)
             ])
             
-        # DEMANDA ATENDIDA: Alinhamento central absoluto (estilo_celula) em TODAS as colunas da última linha totalizada
+        # DEMANDA ATENDIDA: Centralização rigorosa (estilo_celula) em TODAS as células da última linha totalizada
         dados_qdc_pdf.append([
             Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
             Paragraph(f"<b>Potência Instalada Ativa: {sum_pot_w} W | Aparente: {sum_pot_va} VA</b>", estilo_celula),
@@ -511,17 +501,14 @@ def gerar_pdf_completo_obra():
             Paragraph(f"<b>{round(sum_ib, 2)}</b>", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula),
             Paragraph(f"<b>{tot_r}</b>", estilo_celula), Paragraph(f"<b>{tot_s}</b>", estilo_celula), Paragraph(f"<b>{tot_t}</b>", estilo_celula)
         ])
-        
         larguras_mda = [14.0, 24.0, 115.0, 36.0, 24.0, 24.0, 24.0, 36.0, 34.0, 34.0, 32.0, 32.0, 36.0, 24.0, 16.0, 26.0, 32.0, 26.0, 34.0, 34.0, 34.0]
         t_qdc = Table(dados_qdc_pdf, colWidths=larguras_mda)
         t_qdc.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,1), colors.HexColor('#1E3A8A')),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
+            ('BACKGROUND', (0,0), (-1,1), colors.HexColor('#1E3A8A')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
             ('SPAN', (4,0), (6,0)), ('SPAN', (14,0), (15,0)), ('SPAN', (18,0), (20,0)), ('SPAN', (2, -1), (7, -1)),
             ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 2)
         ]))
         elementos.append(t_qdc)
-
     listas_gerais_obra = [
         ("2. Memorial da Fase Civil", st.session_state.lista_materials_civil, '#475569'),
         ("3. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
@@ -538,12 +525,34 @@ def gerar_pdf_completo_obra():
             for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
             t_m = Table(tbl_d, colWidths=[130.0, 400.0, 140.0, 80.0])
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(cor_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
-elementos.append(t_m)elementos.append(PageBreak())elementos.append(Paragraph("8. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção (DJ / DR / DPS)", estilo_sub))elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))elementos.append(PageBreak())elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))# DEMANDA ATENDIDA: Consolidação de todas as observações técnicas levantadas para a prancha do QDCelementos.append(PageBreak())elementos.append(Paragraph("10. Observações Técnicas Normativas (Fixar na Tampa Interna do QDC)", estilo_sub))caviso = [Paragraph("📝 DIRETRIZES DE CAMPO OBRIGATÓRIAS - NBR 5410 & NR-10", estilo_aviso_tit),Spacer(1, 2),Paragraph("• Código Regulamentar de Cores: Condutor Neutro deve ser 🔵 AZUL CLARO. Condutor de Proteção deve ser 🟢 VERDE ou VERDE-AMARELO. Condutores de Fase devem ser ⚫ PRETO ou 🔴 VERMELHO.", estilo_aviso_corpo),Paragraph("• Dispositivos de Proteção Ativos: É proibido anular o Interruptor Diferencial Residual (IDR) de 30mA e os Supressores de Surto (DPS) de 45kA classe II.", estilo_aviso_corpo),Paragraph("• Identificação de Circuitos: Todas as chaves disjuntoras devem receber etiquetas correspondentes à prancha MDA sob risco de interdição técnica.", estilo_aviso_corpo),Paragraph("• Torque e Reaperto Técnico: Realizar inspeção semestral de torque nos bornes de conexão dos disjuntores para evitar pontos quentes e perdas por efeito Joule.", estilo_aviso_corpo)]t_av = Table([[caviso]], colWidths=[750.0])t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 8)]))elementos.append(t_av)doc.build(elementos)buffer.seek(0)return bufferwith tab_pdf:st.write("### 🖨️ Central de Emissão")st.download_button(label="📥 Baixar Memorial Técnico Unificado (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_unificado.pdf", mime="application/pdf", key="btn_pdf_real")
+            elementos.append(t_m)
 
----
+    elementos.append(PageBreak())
+    elementos.append(Paragraph("8. Diagrama Unifilar - Entrada Geral, Barramentos e Dispositivos de Proteção (DJ / DR / DPS)", estilo_sub))
+    elementos.append(gerar_desenho_unifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
+    elementos.append(PageBreak())
+    elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
+    elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
 
-<FollowUp>
-Após salvar e reiniciar a aplicação na nuvem do Streamlit Cloud, teste gerar o relatório técnico. Deseja prosseguir com o refinamento da plataforma acionando um destes recursos:
-* Inclusão do **módulo de custos (R\$)** para calcular os valores dos materiais gerados automaticamente de acordo com as quantidades?
-* Adição de um botão de download para exportar a **Lista de Compras Geral em formato .CSV / Excel**?
-</FollowUp>
+    # DEMANDA ATENDIDA: Consolidação de todas as observações técnicas levantadas para a prancha do QDC
+    elementos.append(PageBreak())
+    elementos.append(Paragraph("10. Observações Técnicas Normativas (Fixar na Tampa Interna do QDC)", estilo_sub))
+    caviso = [
+        Paragraph("<b>📝 DIRETRIZES DE CAMPO OBRIGATÓRIAS - NBR 5410 & NR-10</b>", estilo_aviso_tit),
+        Spacer(1, 2),
+        Paragraph("• <b>Código Regulamentar de Cores:</b> Condutor Neutro deve ser 🔵 AZUL CLARO. Condutor de Proteção deve ser 🟢 VERDE ou VERDE-AMARELO. Condutores de Fase devem ser ⚫ PRETO ou 🔴 VERMELHO.", estilo_aviso_corpo),
+        Paragraph("• <b>Dispositivos de Proteção Ativos:</b> É proibido anular o Interruptor Diferencial Residual (IDR) de 30mA e os Supressores de Surto (DPS) de 45kA classe II.", estilo_aviso_corpo),
+        Paragraph("• <b>Identificação de Circuitos:</b> Todas as chaves disjuntoras devem receber etiquetas correspondentes à prancha MDA sob risco de interdição técnica.", estilo_aviso_corpo),
+        Paragraph("• <b>Torque e Reaperto Técnico:</b> Realizar inspeção semestral de torque nos bornes de conexão dos disjuntores para evitar pontos quentes e perdas por efeito Joule.", estilo_aviso_corpo)
+    ]
+    t_av = Table([[caviso]], colWidths=[750.0])
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 8)]))
+    elementos.append(t_av)
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer
+
+with tab_pdf:
+    st.write("### 🖨️ Central de Emissão")
+    st.download_button(label="📥 Baixar Memorial Técnico Unificado (PDF)", data=gerar_pdf_completo_obra(), file_name="memorial_de_engenharia_unificado.pdf", mime="application/pdf", key="btn_pdf_real")
