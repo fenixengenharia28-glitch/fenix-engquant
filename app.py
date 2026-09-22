@@ -42,7 +42,7 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row[0]: return json.loads(row[0])
+        if row and row: return json.loads(row[0])
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -165,7 +165,7 @@ def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, 
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
         
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= (iz_cabo * fca * fct):
@@ -238,7 +238,6 @@ def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
 with st.sidebar:
     st.markdown("<h2 style='color:#FFFFFF; background-color:#1E3A8A; padding:10px; border-radius:5px; text-align:center;'>⚙️ CENTRAL FÊNIX</h2>", unsafe_allow_html=True)
     
-    # --- CRUD DE CLIENTE NA ESQUERDA (INCLUIR/DELETAR) ---
     st.write("### 👤 Gestão de Clientes")
     lista_cli = listar_clientes_db()
     if lista_cli:
@@ -262,7 +261,20 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # --- CRUD DE EQUIPE E RESPONSÁVEIS NA ESQUERDA (INCLUIR/ALTERAR/EXCLUIR) ---
+    st.write("### 📦 Cadastro de Materiais")
+    with st.form("form_catalogo_mat", clear_on_submit=True):
+        mat_fase = st.selectbox("Segmento Alvo:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
+        mat_etapa = st.text_input("Etapa de Aplicação (Ex: Infra, Fechamento):")
+        mat_nome = st.text_input("Descrição do Insumo Técnico:")
+        mat_qtd = st.number_input("Quantidade:", value=1.0, min_value=0.1)
+        mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
+        if st.form_submit_button("💾 Gravar no Catálogo"):
+            if mat_nome and mat_etapa:
+                inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_qtd, mat_uni)
+                st.success("Material adicionado ao catálogo!")
+                st.rerun()
+
+    st.markdown("---")
     st.write("### 👥 Equipe e Responsáveis")
     lista_eq = listar_equipe_tecnica()
     if lista_eq:
@@ -270,24 +282,10 @@ with st.sidebar:
         st.dataframe(df_eq_view, use_container_width=True, hide_index=True)
         
         id_eq_op = st.number_input("ID do Membro para Ação:", min_value=1, step=1, key="op_eq_id")
-        col_op1, col_op2 = st.columns(2)
-        with col_op1:
-            if st.button("❌ Remover Membro"):
-                excluir_membro_equipe(id_eq_op)
-                st.success("Membro removido!")
-                st.rerun()
-        with col_op2:
-            membro_alt_check = st.checkbox("⚙️ Alterar Dados?")
-            
-        if membro_alt_check:
-            alt_nome = st.text_input("Novo Nome:")
-            alt_func = st.selectbox("Nova Função:", ["Responsável Técnico", "Eletricista Instalador", "Projetista", "Mestre de Obras"])
-            alt_reg = st.text_input("Novo Registro:")
-            alt_resp = st.checkbox("É o Responsável?")
-            if st.button("📝 Confirmar Alteração Equipe"):
-                atualizar_membro_equipe(id_eq_op, alt_nome, alt_func, alt_reg, alt_resp)
-                st.success("Equipe atualizada!")
-                st.rerun()
+        if st.button("❌ Remover Membro", use_container_width=True):
+            excluir_membro_equipe(id_eq_op)
+            st.success("Membro removido!")
+            st.rerun()
                 
     with st.expander("➕ Cadastrar Membro na Equipe"):
         eq_nome = st.text_input("Nome Completo:")
@@ -315,9 +313,9 @@ dados_c = CONCESSIONARIAS[concessionaria_sel]
 
 tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"])
 with tab_civil:
-    st.write("### 🧱 Configuração de Ambientes e Cubagem Civil")
+    st.write("### 🧱 Configuração de Ambientes")
     cc1, cc2, cc3 = st.columns(3)
-    with cc1: nome_c = st.text_input("Nome do Cômodo (Ex: Cozinha, Quarto):")
+    with cc1: nome_c = st.text_input("Nome do Cômodo:")
     with cc2: comp_c = st.number_input("Comprimento (m):", value=4.0)
     with cc3: larg_c = st.number_input("Largura (m):", value=3.5)
     if st.button("➕ Cadastrar Cômodo na Planta"):
@@ -325,7 +323,6 @@ with tab_civil:
             st.session_state.comodos.append({"Cômodo": nome_c, "Comprimento": comp_c, "Largura": larg_c})
             salvar_dados_permanentes("comodos", st.session_state.comodos)
             st.rerun()
-            
     if st.session_state.comodos: st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
 
     st.markdown("---")
@@ -335,10 +332,11 @@ with tab_civil:
         st.session_state.lista_materials_civil = [
             {"Etapa": "01. Locação", "Material": "Tábua de Pinus 30cm x 3m", "Quantidade": float(math.ceil(perimetro_paredes * 0.4)), "Unidade": "un"},
             {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": 4.8, "Unidade": "m³"},
-            {"Etapa": "03. Estrutura", "Material": "Cimento CP II-Z-32 (Saco 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"}
+            {"Etapa": "03. Estrutura", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"}
         ]
         st.rerun()
     if st.session_state.lista_materials_civil: st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True)
+
 with tab_eletrica:
     st.write("### ⚡ Escopo Relacional sob Critério Estruturado MDA (NBR 5410)")
     modo_eletrico = st.radio("Método de Lançamento:", ["Lote Automático (Casa Toda)", "Lançar Circuito Customizado Separado"], horizontal=True)
@@ -382,6 +380,7 @@ with tab_eletrica:
                 salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
                 st.rerun()
     if st.session_state.lista_circuitos_calc: st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
+
 with tab_hidraulica:
     st.write("### 🚰 Rede Hidráulica")
     m_agua = st.number_input("Metragem Tubo PVC 25mm (m):", value=30)
@@ -422,34 +421,19 @@ with tab_solar:
         st.rerun()
     if st.session_state.lista_materials_solar: st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True)
 with tab_catalogo:
-    st.write("### 📂 Gerenciamento Geral do Catálogo Sincronizado SQLite")
+    st.write("### 📂 Visualização de Catálogo Geral Sincronizado SQLite")
     cat_df = listar_materiais_catalogo()
     if cat_df:
-        df_cat_table = pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"])
-        st.dataframe(df_cat_table, use_container_width=True, hide_index=True)
+        df_cat = pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"])
+        st.dataframe(df_cat, use_container_width=True, hide_index=True)
         
         id_mat_op = st.number_input("ID do Material para Modificação/Remoção:", min_value=1, step=1, key="op_mat_id")
-        col_mat_b1, col_mat_b2 = st.columns(2)
-        with col_mat_b1:
-            if st.button("❌ Remover Material do Catálogo", use_container_width=True):
-                excluir_material_db(id_mat_op)
-                st.success("Item removido do banco físico!")
-                st.rerun()
-        with col_mat_b2:
-            check_alt_mat = st.checkbox("⚙️ Ativar Alteração Cadastral?")
-            
-        if check_alt_mat:
-            m_fase_a = st.selectbox("Nova Fase:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
-            m_etapa_a = st.text_input("Nova Etapa do Serviço:")
-            m_nome_a = st.text_input("Nova Descrição do Material:")
-            m_qtd_a = st.number_input("Nova Quantidade:", value=1.0)
-            m_uni_a = st.selectbox("Nova Unidade:", ["un", "m", "m²", "m³", "barra", "sc"])
-            if st.button("📝 Confirmar Alteração de Material"):
-                atualizar_material_db(id_mat_op, m_fase_a, m_etapa_a, m_nome_a, m_qtd_a, m_uni_a)
-                st.success("Dados atualizados no banco físico SQLite!")
-                st.rerun()
+        if st.button("❌ Remover Material do Catálogo", use_container_width=True):
+            excluir_material_db(id_mat_op)
+            st.success("Item removido do banco físico!")
+            st.rerun()
     else:
-        st.info("Catálogo vazio. Utilize a barra lateral esquerda para realizar o cadastro inicial de insumos.")
+        st.info("Catálogo vazio. Utilize a barra lateral esquerda para realizar o cadastro de insumos.")
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
@@ -462,7 +446,15 @@ def gerar_pdf_completo_obra():
     estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS (MODELO MDA)</b>", estilo_titulo), Spacer(1, 4)]
-    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]]
+    
+    # --- PROVA DE NAMEERROR: Mapeamento seguro baseado na tabela persistente local ---
+    lista_cli_local = listar_clientes_db()
+    if lista_cli_local:
+        c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local[0][1], lista_cli_local[0][2], lista_cli_local[0][3]
+    else:
+        c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
+        
+    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {c_nome_txt}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {c_end_txt}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {c_cid_txt}", estilo_celula_esq)]]
     t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
@@ -491,7 +483,7 @@ def gerar_pdf_completo_obra():
         for c in st.session_state.lista_circuitos_calc:
             p_va_val = c.get("POT_VA", c["POT_W"])
             r_val = p_va_val if c["FASE"] == "R" else (p_va_val//2 if "RS" in c["FASE"] else 0)
-            s_val = p_va_val if c["FASE"] == "S" else (p_w_val//2 if "RS" in c["FASE"] else 0)
+            s_val = p_va_val if c["FASE"] == "S" else (p_va_val//2 if "RS" in c["FASE"] else 0)
             dados_qdc_pdf.append([
                 Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq), Paragraph(str(c.get("COMODO","Geral")), estilo_celula),
                 Paragraph(str(c["POT_W"]), estilo_celula), Paragraph(str(c.get("FP", 1.0)), estilo_celula), Paragraph(str(p_va_val), estilo_celula),
@@ -505,20 +497,20 @@ def gerar_pdf_completo_obra():
 
     listas_gerais_obra = [
         ("2. Memorial Quantitativo da Fase Civil", st.session_state.lista_materials_civil, '#475569'),
-        ("3. Lote Hidráulico e Redes de Esgoto Sanitário", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
-        ("4. Infraestrutura e Tubulações de Gás Encanado", st.session_state.lista_materials_gas, '#B45309'),
-        ("5. Cabeamento Estruturado e Rede de Internet", st.session_state.lista_materials_dados, '#6D28D9'),
+        ("3. Lote Hidráulico e Redes de Esgoto", st.session_state.lista_materials_hidraulicos, '#1E40AF'),
+        ("4. Infraestrutura de Gás Encanado", st.session_state.lista_materials_gas, '#B45309'),
+        ("5. Cabeamento de Internet e Telecom", st.session_state.lista_materials_dados, '#6D28D9'),
         ("6. Ativos de Segurança Eletrônica Monitorável", st.session_state.lista_materials_seguranca, '#0F172A'),
         ("7. Engenharia Solar Fotovoltaica (NBR 16690)", st.session_state.lista_materials_solar, '#F59E0B')
     ]
-    for tit, lista, cor_hex in listas_gerais_obra:
+    for tit, lista, col_hex in listas_gerais_obra:
         if lista:
             elementos.append(PageBreak())
             elementos.append(Paragraph(tit, estilo_sub))
             tbl_d = [[Paragraph("<b>Etapa</b>", estilo_celula), Paragraph("<b>Insumo Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
             for mat in lista: tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
             t_m = Table(tbl_d, colWidths=[130.0, 390.0, 140.0, 80.0])
-            t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(cor_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
+            t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(col_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
 
     elementos.append(PageBreak())
@@ -536,8 +528,7 @@ def gerar_pdf_completo_obra():
         Paragraph("• <b>Padrão de Cores dos Condutores:</b> É obrigatório respeitar estritamente a padronização de cores desta instalação: 🟢 VERDE: Condutor de Proteção (Terra) | 🔵 AZUL: Condutor Neutro | ⚫🔴 FASES: Condutores Ativos.", estilo_aviso_corpo),
         Paragraph("• <b>Identificação de Circuitos:</b> É obrigatório manter todos os disjuntores devidamente identificados de acordo com a fiação correspondente.", estilo_aviso_corpo),
         Paragraph("• <b>Teste Mensal do DR:</b> Pressione o botão 'T' (Teste) do interruptor diferencial residual mensalmente para garantir a integridade contra choques elétricos.", estilo_aviso_corpo),
-        Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela vermelha exige substituição imediata.", estilo_aviso_corpo),
-        Paragraph("• <b>Seção vs. Disjuntor:</b> Nunca aumente a amperagem de um disjuntor sem recalcular a fiação para evitar riscos de incêndio por sobrecarga.", estilo_aviso_corpo)
+        Paragraph("• <b>Inspeção do DPS:</b> Verifique o indicador visual do protetor de surto regularmente. Janela vermelha exige substituição imediata.", estilo_aviso_corpo)
     ]
     t_av = Table([[caviso]], colWidths=[740.0])
     t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 10)]))
