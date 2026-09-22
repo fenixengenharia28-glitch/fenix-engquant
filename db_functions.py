@@ -4,14 +4,14 @@ import json
 def init_db():
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
-    # Tabelas base de cadastro
+    # Tabelas base de cadastro administrativo e geométrico
     cursor.execute("CREATE TABLE IF NOT EXISTS configuracoes (id TEXT PRIMARY KEY, dados TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, endereco TEXT, cidade_uf TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS materiais_catalogo (id INTEGER PRIMARY KEY AUTOINCREMENT, fase TEXT, etapa TEXT, material TEXT, quantidade REAL, unidade TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS equipe_tecnica (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, registro TEXT, responsavel INTEGER)")
     cursor.execute("CREATE TABLE IF NOT EXISTS comodos_obra (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, comprimento REAL, largura REAL)")
     
-    # NOVAS TABELAS PARA SALVAMENTO PERMANENTE DE MATERIAIS CALCULADOS E CIRCUITOS
+    # Tabelas de persistência permanente para os insumos calculados e prancha elétrica
     cursor.execute("CREATE TABLE IF NOT EXISTS materiais_calculados (id INTEGER PRIMARY KEY AUTOINCREMENT, fase TEXT, etapa TEXT, material TEXT, quantidade REAL, unidade TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS circuitos_calculados (id TEXT PRIMARY KEY, descricao TEXT, comodo TEXT, pot_w INTEGER, pot_va REAL, fp REAL, tipo TEXT, disj TEXT, curva TEXT, cond TEXT, fase_linha TEXT, tensao INTEGER, ib REAL, ib_corr REAL, comp INTEGER, dv REAL)")
     conn.commit()
@@ -35,7 +35,7 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row: 
+        if row and row[0]: 
             return json.loads(row[0])
     except Exception:
         return valor_padrao
@@ -60,7 +60,7 @@ def inserir_circuito_permanente(c_dict):
 def listar_circuitos_permanentes():
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM circuitos_calculados")
+    cursor.execute("SELECT id, descricao, comodo, pot_w, pot_va, fp, tipo, disj, curva, cond, fase_linha, tensao, ib, ib_corr, comp, dv FROM circuitos_calculados")
     rows = cursor.fetchall()
     conn.close()
     lista = []
@@ -86,14 +86,18 @@ def limpar_todos_circuitos_permanentes():
     conn.commit()
     conn.close()
 
-# --- PERSISTÊNCIA PERMANENTE DE MATERIAIS DE OBRA ---
+# --- PERSISTÊNCIA PERMANENTE DE MATERIAIS DE OBRA (TODAS AS DISCIPLINAS) ---
 def salvar_materiais_calculados_fase(fase, lista_materiais):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
     cursor.execute("DELETE FROM materiais_calculados WHERE fase = ?", (fase,))
-    for m in lista_materials:
-        cursor.execute("INSERT INTO materiais_calculados (fase, etapa, material, quantidade, unidade) VALUES (?, ?, ?, ?, ?)",
-                       (fase, m["Etapa"], m["Material"], m["Quantidade"], m["Unidade"]))
+    
+    # CORRIGIDO: Vinculação de variável corrigida de lista_materials para lista_materiais
+    for m in lista_materiais:
+        cursor.execute("""
+            INSERT INTO materiais_calculados (fase, etapa, material, quantidade, unidade) 
+            VALUES (?, ?, ?, ?, ?)
+        """, (fase, m["Etapa"], m["Material"], m["Quantidade"], m["Unidade"]))
     conn.commit()
     conn.close()
 
@@ -105,7 +109,7 @@ def listar_materiais_calculados_fase(fase):
     conn.close()
     return [{"Etapa": r[0], "Material": r[1], "Quantidade": r[2], "Unidade": r[3]} for r in rows]
 
-# --- CRUD TRADICIONAL DE CADASTROS ---
+# --- CRUD DE CADASTROS ADMINISTRATIVOS ---
 def inserir_cliente_db(nome, endereco, city_uf):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
