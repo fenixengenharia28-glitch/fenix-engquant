@@ -10,6 +10,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # Importação dos módulos locais soltos na mesma pasta raiz do projeto
 from db_functions import *
 from calculus_engine import *
+# Configuração primária obrigatória da janela do navegador
+st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
+
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -25,7 +28,7 @@ def gerar_pdf_completo_obra():
     cabo_padrao = "16 mm²"
     dj_padrao = "Disjuntor Geral 50A"
 
-    # Carrega dados diretamente do banco de dados para a persistência no documento
+    # Carrega dados diretamente do banco de dados para garantir a persistência no documento
     disciplinas_pdf = [
         ("2. Memorial da Fase Civil", listar_materiais_calculados_fase("Civil"), '#475569'),
         ("3. Lote Hidráulico e Redes de Esgoto", listar_materiais_calculados_fase("Hidráulica"), '#1E40AF'),
@@ -162,12 +165,12 @@ def main():
     concessionaria_sel = st.selectbox("Escolha a Concessionária de Energia Alvo do Brasil:", list(concessionarias_locais.keys()))
     dados_c = concessionarias_locais[concessionaria_sel]
 
-    # Guarda a lista ordenada de abas no session_state para extração segura por índices
+    # Cria o contêiner central e o armazena de forma estruturada para indexação segura
     st.session_state["active_tabs_fenix"] = st.tabs([
         "🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", 
         "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"
     ])
-    # Extração segura por índice do array de abas do Streamlit
+    # Desestruturação e isolamento do índice correspondente à Aba Civil
     tab_civil = st.session_state["active_tabs_fenix"][0]
 
     with tab_civil:
@@ -217,6 +220,7 @@ def main():
                 salvar_materiais_calculados_fase("Civil", st.session_state.lista_materials_civil)
                 st.rerun()
         else:
+            # Sincroniza o estado de exibição buscando os dados permanentes guardados no banco
             st.session_state.lista_materials_civil = listar_materiais_calculados_fase("Civil")
             
             if lista_comodos_fisicos:
@@ -248,6 +252,7 @@ def main():
                         elif fase_cat == "Energia Solar":
                             solar_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(fat_cat)), "Unidade": uni_cat})
                     
+                    # SALVAMENTO DEFINITIVO DE TODAS AS DISCIPLINAS NO BANCO DE DADOS LOCAL
                     salvar_materiais_calculados_fase("Civil", civil_temp)
                     salvar_materiais_calculados_fase("Hidráulica", hidra_temp)
                     salvar_materiais_calculados_fase("Gás Encanado", gas_temp)
@@ -255,6 +260,7 @@ def main():
                     salvar_materiais_calculados_fase("Segurança", seg_temp)
                     salvar_materiais_calculados_fase("Energia Solar", solar_temp)
                     
+                    # Atualiza variáveis na memória volátil da sessão atual
                     st.session_state.lista_materials_civil = civil_temp
                     st.session_state.lista_materials_hidraulicos = hidra_temp
                     st.session_state.lista_materials_gas = gas_temp
@@ -262,6 +268,7 @@ def main():
                     st.session_state.lista_materials_seguranca = seg_temp
                     st.session_state.lista_materials_solar = solar_temp
                     
+                    # Limpa e pré-dimensiona os circuitos automáticos de base do modo geral
                     limpar_todos_circuitos_permanentes()
                     planta_modelo = [
                         {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(area_acumulada * 15))},
@@ -282,7 +289,7 @@ def main():
                     
         if st.session_state.lista_materials_civil: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True, hide_index=True)
-    # Extração segura por índice da Aba Elétrica
+    # Isolamento do índice correspondente à Aba Elétrica
     tab_eletrica = st.session_state["active_tabs_fenix"][1]
 
     with tab_eletrica:
@@ -322,7 +329,7 @@ def main():
                             "COMP": c_com_in, "DV": res["DV"]
                         }
                         inserir_circuito_permanente(c_dados)
-                        st.success(f"Circuito {c_num_in} adicionado e salvo permanentemente!")
+                        st.success(f"Circuito {c_num_in} adicionado!")
                         st.rerun()
 
             if st.session_state.lista_circuitos_calc:
@@ -333,7 +340,7 @@ def main():
                     circ_para_remover = st.selectbox("Identificação para Excluir:", opcoes_circ)
                     if st.button("🗑️ Remover Circuito"):
                         excluir_circuito_permanente(circ_para_remover)
-                        st.success("Circuito removido do banco de dados!")
+                        st.success("Circuito removido!")
                         st.rerun()
 
         if st.session_state.lista_circuitos_calc:
@@ -341,7 +348,7 @@ def main():
             st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum circuito programado ou calculado até o momento.")
-    # Extração segura das abas por fatiamento de índices numéricos estáveis
+    # Extração estável e segura das abas por índices numéricos correspondentes
     tab_hidraulica = st.session_state["active_tabs_fenix"][2]
     tab_gas = st.session_state["active_tabs_fenix"][3]
     tab_dados = st.session_state["active_tabs_fenix"][4]
@@ -355,35 +362,35 @@ def main():
         if st.session_state.lista_materials_hidraulicos: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_hidraulicos), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum material hidráulico processado até o momento. Clique em 'Processar Insumos' na aba Civil.")
+            st.info("Nenhum material hidráulico processado. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_gas:
         st.session_state.lista_materials_gas = listar_materiais_calculados_fase("Gás Encanado")
         if st.session_state.lista_materials_gas: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_gas), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum material de gás encanado processado até o momento. Clique em 'Processar Insumos' na aba Civil.")
+            st.info("Nenhum material de gás processado. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_dados:
         st.session_state.lista_materials_dados = listar_materiais_calculados_fase("Internet/Dados")
         if st.session_state.lista_materials_dados: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_dados), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum ativo de internet ou dados cadastrado até o momento. Clique em 'Processar Insumos' na aba Civil.")
+            st.info("Nenhum ativo de internet processado. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_seguranca:
         st.session_state.lista_materials_seguranca = listar_materiais_calculados_fase("Segurança")
         if st.session_state.lista_materials_seguranca: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_seguranca), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum material de segurança eletrônica listado até o momento. Clique em 'Processar Insumos' na aba Civil.")
+            st.info("Nenhum material de segurança listado. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_solar:
         st.session_state.lista_materials_solar = listar_materiais_calculados_fase("Energia Solar")
         if st.session_state.lista_materials_solar: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum componente solar fotovoltaico gerado até o momento. Clique em 'Processar Insumos' na aba Civil.")
+            st.info("Nenhum componente solar gerado. Clique em 'Processar Insumos' na aba Civil.")
 
     with tab_catalogo:
         cat_df = listar_materiais_catalogo()
@@ -406,5 +413,5 @@ def main():
 
 # Cláusula de inicialização segura do ecossistema Fênix
 if __name__ == "__main__":
-    init_db()  # Garante as tabelas estruturais locais prontas antes da interface
+    init_db()  # Executa a inicialização estrutural das tabelas locais
     main()
