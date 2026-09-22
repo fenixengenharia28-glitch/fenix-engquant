@@ -424,8 +424,10 @@ def gerar_pdf_completo_obra():
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS (MODELO MDA)</b>", estilo_titulo), Spacer(1, 4)]
     
     lista_cli_local = listar_clientes_db()
-    if lista_cli_local: c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local[0][1], lista_cli_local[0][2], lista_cli_local[0][3]
-    else: c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
+    if lista_cli_local:
+        c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local[0][1], lista_cli_local[0][2], lista_cli_local[0][3]
+    else:
+        c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
         
     dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {c_nome_txt}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {c_end_txt}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {c_cid_txt}", estilo_celula_esq)]]
     t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
@@ -473,7 +475,7 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # DEMANDA ATENDIDA: Centralização rigorosa (estilo_celula) de todas as colunas da última linha totalizada
+        # CORREÇÃO: Alinhamento central absoluto (estilo_celula) em todas as colunas da última linha totalizada
         dados_qdc_pdf.append([
             Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>Carga Acumulada Centralizada</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
             Paragraph(f"<b>{sum_pot_w}W</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula), Paragraph(f"<b>{sum_pot_va}VA</b>", estilo_celula),
@@ -510,7 +512,7 @@ def gerar_pdf_completo_obra():
     elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
 
-    # DEMANDA ATENDIDA: Bloco corporativo completo de avisos elétricos de campo para colar no QDC
+    # Fixação de notas elétricas normativas para a tampa interna do QDC físico
     elementos.append(PageBreak())
     elementos.append(Paragraph("10. Observações Técnicas Normativas (Fixar na Tampa Interna do QDC)", estilo_sub))
     caviso = [
