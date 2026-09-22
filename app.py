@@ -82,14 +82,14 @@ def atualizar_lote_materiais_fase(fase, lista_materiais):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
     cursor.execute("DELETE FROM materiais_catalogo WHERE fase = ?", (fase,))
-    for m in lista_materials:
+    for m in lista_materiais:
         cursor.execute("INSERT INTO materiais_catalogo (fase, etapa, material, quantidade, unidade) VALUES (?, ?, ?, ?, ?)", 
                        (fase, m.get("Etapa", "Geral"), m.get("Material", ""), float(m.get("Quantidade", 0.0)), m.get("Unidade", "un")))
     conn.commit()
     conn.close()
-# Sincroniza a memória de interface com os registros fixados no banco SQLite
+# --- CORREÇÃO DEFINITIVA DO NAMEERROR: Ajustado o mapeamento e chamada correta da função ---
 if "db_sync_completo" not in st.session_state:
-    raw_db = listar_materials_catalogo()
+    raw_db = listar_materiais_catalogo()
     st.session_state.lista_materials_civil = [{"Etapa": r[2], "Material": r[3], "Quantidade": r[4], "Unidade": r[5]} for r in raw_db if r[1] == "Civil"]
     st.session_state.lista_materials_eletricos = carregar_dados_permanentes("materials_eletricos", [])
     st.session_state.lista_materials_hidraulicos = [{"Etapa": r[2], "Material": r[3], "Quantidade": r[4], "Unidade": r[5]} for r in raw_db if r[1] == "Hidráulica"]
@@ -140,41 +140,45 @@ def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
         d.add(String(340, y + 4, str(c.get('COND','2.5 mm²')), fontSize=6.5, fillColor=colors.HexColor('#2563EB'), fontName='Helvetica-Bold'))
         d.add(String(375, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:22]} - {c.get('COMODO','Geral')} ({c.get('POT_W',1000)}W)", fontSize=7.5, fontName='Helvetica'))
     return d
-def gerar_desenho_unifilar(cabo_pad, dj_pad, circuitos_list):
+def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
     n_circ = len(circuitos_list) if circuitos_list else 1
-    altura_d = max(220, (n_circ * 30) + 120)
+    altura_d = max(260, (n_circ * 35) + 140)
     d = Drawing(720, altura_d)
+    x_fase1, x_fase2, x_neutro, x_terra = 220, 250, 280, 310
     
-    d.add(Line(20, altura_d - 40, 90, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(20, altura_d - 32, f"Rede BT Ramal: {cabo_pad}", fontSize=8, fontName='Helvetica-Bold'))
+    d.add(Rect(180, altura_d - 45, 160, 35, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(String(185, altura_d - 22, "SISTEMA DE ENTRADA GERAL", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+    d.add(String(185, altura_d - 32, f"DISJ. GERAL: {dj_pad} | CABO: {cabo_pad}", fontSize=6.5))
+    d.add(String(185, altura_d - 42, "PROTEÇÃO ADICIONAL: DPS + IDR", fontSize=5.5, fillColor=colors.red))
     
-    d.add(Rect(90, altura_d - 52, 45, 24, fillColor=colors.HexColor('#EFF6FF'), strokeColor=colors.black, strokeWidth=1.5))
-    d.add(String(95, altura_d - 44, "DJ Geral", fontSize=7, fontName='Helvetica-Bold'))
-    d.add(String(95, altura_d - 51, f"{dj_pad}", fontSize=6.5, fontName='Helvetica'))
-    d.add(Line(135, altura_d - 40, 160, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(Line(200, altura_d - 45, x_fase1, altura_d - 65, strokeColor=colors.red, strokeWidth=1.5))
+    d.add(Line(240, altura_d - 45, x_fase2, altura_d - 65, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(Line(280, altura_d - 45, x_neutro, altura_d - 65, strokeColor=colors.blue, strokeWidth=1.5))
     
-    d.add(Rect(160, altura_d - 52, 35, 24, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.2))
-    d.add(String(166, altura_d - 44, "DPS", fontSize=7, fontName='Helvetica-Bold'))
-    d.add(String(164, altura_d - 51, "45kA Cl.II", fontSize=5.5))
-    d.add(Line(195, altura_d - 40, 215, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
+    d.add(Line(x_fase1, altura_d - 65, x_fase1, 20, strokeColor=colors.red, strokeWidth=1.8))
+    d.add(Line(x_fase2, altura_d - 65, x_fase2, 20, strokeColor=colors.black, strokeWidth=1.8))
+    d.add(Line(x_neutro, altura_d - 65, x_neutro, 20, strokeColor=colors.blue, strokeWidth=1.8))
+    d.add(Line(x_terra, altura_d - 20, x_terra, 20, strokeColor=colors.black, strokeWidth=1.5))
     
-    d.add(Rect(215, altura_d - 52, 35, 24, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1.2))
-    d.add(String(222, altura_d - 44, "IDR", fontSize=7, fontName='Helvetica-Bold'))
-    d.add(String(219, altura_d - 51, "30mA", fontSize=5.5))
-    
-    d.add(Line(250, altura_d - 40, 280, altura_d - 40, strokeColor=colors.black, strokeWidth=1.5))
-    d.add(Line(280, altura_d - 40, 280, 20, strokeColor=colors.black, strokeWidth=2))
-    d.add(String(285, altura_d - 35, "Barramento QDC", fontSize=8, fontName='Helvetica-Bold', fillColor=colors.HexColor('#1E3A8A')))
+    d.add(String(x_fase1 - 5, altura_d - 62, "R", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.red))
+    d.add(String(x_fase2 - 5, altura_d - 62, "S", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.black))
+    d.add(String(x_neutro - 5, altura_d - 62, "N", fontSize=7, fontName='Helvetica-Bold', fillColor=colors.blue))
+    d.add(String(x_terra - 5, altura_d - 15, "T", fontSize=7, fontName='Helvetica-Bold'))
     
     for idx, c in enumerate(circuitos_list):
-        y = (altura_d - 80) - (idx * 30)
-        d.add(Circle(280, y, 2, fillColor=colors.black, strokeColor=colors.black))
-        d.add(Line(280, y, 320, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(Line(320, y, 335, y - 8, strokeColor=colors.black, strokeWidth=1.5))
-        d.add(String(315, y + 5, f"{c.get('CURVA','C')}{c.get('DISJ','20A')}", fontSize=7, fontName='Helvetica-Bold'))
-        d.add(Line(335, y, 365, y, strokeColor=colors.black, strokeWidth=1.2))
-        d.add(String(340, y + 4, str(c.get('COND','2.5 mm²')), fontSize=6.5, fillColor=colors.HexColor('#2563EB'), fontName='Helvetica-Bold'))
-        d.add(String(375, y - 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:22]} - {c.get('COMODO','Geral')} ({c.get('POT_W',1000)}W)", fontSize=7.5, fontName='Helvetica'))
+        y = (altura_d - 100) - (idx * 35)
+        if idx % 2 == 0:
+            d.add(Rect(20, y - 10, 140, 24, fillColor=colors.white, strokeColor=colors.HexColor('#1E3A8A'), strokeWidth=1))
+            d.add(String(25, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:15]}", fontSize=6.5, fontName='Helvetica-Bold'))
+            d.add(String(25, y - 6, f"Local: {c.get('COMODO','Geral')} | {c.get('COND','2.5mm²')}", fontSize=5.5))
+            d.add(Circle(x_fase1, y, 2, fillColor=colors.red, strokeColor=colors.red))
+            d.add(Line(160, y, x_fase1, y, strokeColor=colors.black, strokeWidth=1))
+        else:
+            d.add(Rect(350, y - 10, 140, 24, fillColor=colors.white, strokeColor=colors.HexColor('#0D9488'), strokeWidth=1))
+            d.add(String(355, y + 2, f"C{c.get('CIRC', idx+1)}: {str(c.get('DESCRIÇÃO',''))[:15]}", fontSize=6.5, fontName='Helvetica-Bold'))
+            d.add(String(355, y - 6, f"Local: {c.get('COMODO','Geral')} | {c.get('COND','2.5mm²')}", fontSize=5.5))
+            d.add(Circle(x_neutro, y, 2, fillColor=colors.blue, strokeColor=colors.blue))
+            d.add(Line(350, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
     return d
 def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.8
@@ -299,7 +303,7 @@ with tab_eletrica:
                 b, dj, crv, ib_c = dimensionar_circuito_nbr5410(item["POT_W"], tensao_item, item["COMP"], item["DESCRIÇÃO"])
                 st.session_state.lista_circuitos_calc.append({
                     "CIRC": item["CIRC"], "DESCRIÇÃO": item["DESCRIÇÃO"], "COMODO": item["COMODO"], "POT_W": int(item["POT_W"]), "TIPO": item["TIPO"],
-                    "DISJ": f"{dj}A", "CURVA": curva, "COND": f"{b} mm²", "FASE": "RS" if item["TIPO"]=="Bifásico" else "R",
+                    "DISJ": f"{dj}A", "CURVA": crv, "COND": f"{b} mm²", "FASE": "RS" if item["TIPO"]=="Bifásico" else "R",
                     "TENSÃO": int(tensao_item), "IB": float(ib_c), "COMP": int(item["COMP"])
                 })
             salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
@@ -404,6 +408,7 @@ with tab_seguranca:
         st.session_state.lista_materials_seguranca = [
             {"Etapa": "Segurança Eletrônica", "Material": "Câmera CFTV IP Bullet 2MP", "Quantidade": float(n_cameras), "Unidade": "un"}
         ]
+        st.session_state.seguranca_insumos["cameras"] = n_cameras
         atualizar_lote_materiais_fase("Segurança", st.session_state.lista_materials_seguranca)
         st.rerun()
     if st.session_state.lista_materials_seguranca:
@@ -413,7 +418,6 @@ with tab_seguranca:
             atualizar_lote_materiais_fase("Segurança", st.session_state.lista_materials_seguranca)
             st.rerun()
 
-# DEMANDA ATENDIDA: Aba Ver Catálogo agora possui a opção de cadastro e gravação física imediata no SQLite
 with tab_catalogo:
     st.write("### 📦 Cadastrar Novo Produto no Catálogo")
     with st.form("form_catalogo_direto", clear_on_submit=True):
