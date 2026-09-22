@@ -12,7 +12,7 @@ from db_functions import *
 from calculus_engine import *
 from style_utils import *
 
-# Garante a limpeza automatizada de bancos corrompidos ou antigos no deploy na nuvem
+# Garante a limpeza automatizada de bancos antigos no deploy na nuvem para aplicar a nova estrutura
 if os.path.exists("fenix_database.db"):
     try:
         os.remove("fenix_database.db")
@@ -149,6 +149,7 @@ def renderizar_sidebar():
                     inserir_membro_equipe(eq_nome, eq_func, eq_reg, eq_resp)
                     st.success("Membro alocado!")
                     st.rerun()
+
 def main():
     concessionarias_locais = {
         "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
@@ -178,13 +179,13 @@ def main():
     concessionaria_sel = st.selectbox("Escolha a Concessionária de Energia Alvo do Brasil:", list(concessionarias_locais.keys()))
     dados_c = concessionarias_locais[concessionaria_sel]
 
-    # Criação estruturada do contêiner mestre de abas
+    # Criação do contêiner multiabas
     global_tabs = st.tabs([
         "🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", 
         "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"
     ])
 
-    # CORRIGIDO: Atribuição estável desestruturando por índices individuais reais para anular o TypeError
+    # Atribuição por índices numéricos estáveis contra TypeError
     tab_civil = global_tabs[0]
     tab_eletrica = global_tabs[1]
     tab_hidraulica = global_tabs[2]
@@ -226,6 +227,7 @@ def main():
                     excluir_comodo_db(id_com_op)
                     st.success("Removido da planta!")
                     st.rerun()
+                    
         st.markdown("---")
         modo_civil = st.radio("Seletor do Modo de Escopo Civil:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_civil_radio")
         st.session_state["modo_calculo_civil"] = modo_civil
@@ -234,71 +236,33 @@ def main():
             area_obra = st.number_input("Área Construída Total (m²):", min_value=10.0, value=70.0, key="area_civil_global")
             perimetro_paredes = st.number_input("Perímetro Total das Paredes (m):", min_value=0.0, value=45.0, key="perim_civil_global")
             
-            if st.button("📊 Processar Cubagem Mestre Global (Todas as Abas)"):
-                # CÁLCULO EM CASCATA E SALVAMENTO IMEDIATO NO BANCO DE TODAS AS DISCIPLINAS
-                salvar_materiais_calculados_fase("Civil", [
+            if st.button("📊 Executar Cálculo Completo Global - Civil", use_container_width=True):
+                civil_temp = [
                     {"Etapa": "01. Locação", "Material": "Tábua de Pinus 30cm x 3m", "Quantidade": float(math.ceil(perimetro_paredes * 0.4)), "Unidade": "un"},
-                    {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": 4.8, "Unidade": "m³"},
+                    {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": float(round(area_obra * 0.07, 2)), "Unidade": "m³"},
                     {"Etapa": "03. Estrutura", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"}
-                ], "Cálculo Global")
-                
-                salvar_materiais_calculados_fase("Hidráulica", [
-                    {"Etapa": "01. Alimentação", "Material": "Tubo PVC Soldável 25mm (Barra de 6m)", "Quantidade": float(math.ceil(perimetro_paredes * 0.5)), "Unidade": "barra"}
-                ], "Cálculo Global")
-                
-                salvar_materiais_calculados_fase("Gás Encanado", [
-                    {"Etapa": "01. Conexão", "Material": "Tubo de Cobre Flexível Tomback 3/8", "Quantidade": 5.0, "Unidade": "m"}
-                ], "Cálculo Global")
-                
-                salvar_materiais_calculados_fase("Internet/Dados", [
-                    {"Etapa": "01. Cabeamento", "Material": "Cabo de Rede UTP Cat6 Cor Azul", "Quantidade": 90.0, "Unidade": "m"}
-                ], "Cálculo Global")
-                
-                salvar_materiais_calculados_fase("Segurança", [
-                    {"Etapa": "01. Dispositivos", "Material": "Câmera Bullet IP Dome Full HD 3.6mm", "Quantidade": 4.0, "Unidade": "un"}
-                ], "Cálculo Global")
-                
-                salvar_materiais_calculados_fase("Energia Solar", [
-                    {"Etapa": "01. Geração", "Material": "Painel Solar Fotovoltaico Monocristalino 550W", "Quantidade": 8.0, "Unidade": "un"}
-                ], "Cálculo Global")
-                
-                st.success("O motor mestre Fênix cubou e salvou o Modo Global em todas as abas!")
+                ]
+                salvar_materiais_calculados_fase("Civil", civil_temp, "Cálculo Global")
+                st.success("Cálculo completo global da Fase Civil salvo de forma permanente!")
                 st.rerun()
         else:
             if lista_comodos_fisicos:
                 area_acumulada = sum(float(row[2]) * float(row[3]) for row in lista_comodos_fisicos)
-                perimetro_acumulado = sum((float(row[2]) * 2) + (float(row[3]) * 2) for row in lista_comodos_fisicos)
-                num_comodos = len(lista_comodos_fisicos)
-                st.metric("Área Civil Computada Unificada", f"{round(area_acumulada, 2)} m²")
+                st.metric("Área Civil Computada (Cômodos)", f"{round(area_acumulada, 2)} m²")
                 
-                if st.button("📊 Processar Cubagem Mestre por Cômodo (Todas as Abas)"):
-                    civil_temp, hidra_temp, gas_temp, dados_temp, seg_temp, solar_temp = [], [], [], [], [], []
+                if st.button("📊 Executar Cálculo Completo por Cômodo - Civil", use_container_width=True):
+                    civil_temp = []
                     itens_catalogo = listar_materiais_catalogo()
-                    
                     for item in itens_catalogo:
                         id_cat, fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item
                         if fase_cat == "Civil":
                             civil_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(area_acumulada * fat_cat)), "Unidade": uni_cat})
-                        elif fase_cat == "Hidráulica":
-                            hidra_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(perimetro_acumulado * fat_cat)), "Unidade": uni_cat})
-                        elif fase_cat == "Gás Encanado":
-                            gas_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
-                        elif fase_cat == "Internet/Dados":
-                            dados_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
-                        elif fase_cat == "Segurança":
-                            seg_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
-                        elif fase_cat == "Energia Solar":
-                            solar_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(fat_cat)), "Unidade": uni_cat})
                     
-                    # SALVAMENTO SÍNCRONO INTEGRADO DIRETO NO SQLITE PERMANENTE
                     salvar_materiais_calculados_fase("Civil", civil_temp, "Por Prancha de Cômodos")
-                    salvar_materiais_calculados_fase("Hidráulica", hidra_temp, "Por Prancha de Cômodos")
-                    salvar_materiais_calculados_fase("Gás Encanado", gas_temp, "Por Prancha de Cômodos")
-                    salvar_materiais_calculados_fase("Internet/Dados", dados_temp, "Por Prancha de Cômodos")
-                    salvar_materiais_calculados_fase("Segurança", seg_temp, "Por Prancha de Cômodos")
-                    salvar_materiais_calculados_fase("Energia Solar", solar_temp, "Por Prancha de Cômodos")
-                    st.success("O motor unificado cubou e salvou a Prancha de Cômodos de todas as abas!")
+                    st.success("Cálculo completo por cômodo da Fase Civil salvo de forma permanente!")
                     st.rerun()
+            else:
+                st.warning("Cadastre os ambientes na planta para habilitar o cálculo por cômodo.")
                     
         st.write("#### 📋 Resultados Ativos da Fase Civil")
         materials_fase_civil = listar_materiais_calculados_fase("Civil", modo_civil)
@@ -308,115 +272,326 @@ def main():
             st.info("Nenhum material processado para esta modalidade civil.")
     with tab_eletrica:
         st.write("### ⚡ Escopo e Gestão de Circuitos")
-        modo_eletrica = st.radio("Selecione a Abrangência do Cálculo:", ["Casa Toda", "Circuitos Customizados"], horizontal=True, key="switch_modo_ele")
+        modo_eletrica = st.radio("Selecione a Abrangência do Cálculo:", ["Casa Toda", "Apenas 1 Circuito / Circuitos Customizados"], horizontal=True, key="switch_modo_ele")
         
         if modo_eletrica != st.session_state.modo_eletrica_anterior:
             st.session_state.modo_eletrica_anterior = modo_eletrica
-            if modo_eletrica == "Circuitos Customizados":
+            if modo_eletrica == "Apenas 1 Circuito / Circuitos Customizados":
                 limpar_todos_circuitos_permanentes()
+                st.session_state.lista_circuitos_calc = []
                 st.rerun()
 
-        if modo_eletrica == "Circuitos Customizados":
+        st.session_state.lista_circuitos_calc = listar_circuitos_permanentes()
+
+        if modo_eletrica == "Apenas 1 Circuito / Circuitos Customizados":
+            st.markdown("#### ➕ Adicionar Circuito à Prancha")
             with st.form("form_add_circuito_individual", clear_on_submit=True):
-                col_c1, col_c2 = st.columns(2)
+                col_c1, col_c2, col_c3 = st.columns(3)
                 with col_c1:
-                    c_num_in = st.text_input("ID do Circuito (Ex: C1):")
-                    c_desc_in = st.selectbox("Carga:", ["Iluminação", "Tomadas TUG", "TUE - Chuveiro", "Ar Condicionado"])
+                    c_num_in = st.text_input("Número/Identificação do Circuito (Ex: C1, C2):")
+                    c_desc_in = st.selectbox("Tipo de Carga/Descrição:", ["Iluminação", "Tomadas TUG", "TUE - Chuveiro", "Ar Condicionado", "Micro-ondas", "TUG Cozinha"])
                 with col_c2:
-                    c_pot_in = st.number_input("Potência (W):", min_value=50, value=1200)
-                    c_com_in = st.number_input("Comprimento (m):", min_value=1, value=15)
-                if st.form_submit_button("💾 Salvar Circuito"):
-                    res = dimensionar_circuito_nbr5410_mda(c_pot_in, dados_c["fase"], c_com_in, c_desc_in)
-                    inserir_circuito_permanente({
-                        "CIRC": c_num_in, "DESCRIÇÃO": c_desc_in.upper(), "COMODO": "Geral", 
-                        "POT_W": int(c_pot_in), "POT_VA": res["VA"], "FP": res["FP"], "TIPO": "Monofásico", 
-                        "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²", 
-                        "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"], 
-                        "COMP": c_com_in, "DV": res["DV"]
-                    })
+                    c_pot_in = st.number_input("Potência Total Instalada (Watts):", min_value=50, value=1200, step=50)
+                    c_com_in = st.number_input("Comprimento Máximo do Circuito (m):", min_value=1, value=15, step=1)
+                with col_c3:
+                    c_amb_in = st.text_input("Ambiente Principal Ocupado:")
+                
+                if st.form_submit_button("💾 Calcular e Adicionar Circuito"):
+                    if c_num_in and c_desc_in:
+                        res = dimensionar_circuito_nbr5410_mda(c_pot_in, dados_c["fase"], c_com_in, c_desc_in)
+                        c_dados = {
+                            "CIRC": c_num_in, "DESCRIÇÃO": c_desc_in.upper(), "COMODO": c_amb_in if c_amb_in else "Geral",
+                            "POT_W": int(c_pot_in), "POT_VA": res["VA"], "FP": res["FP"], "TIPO": "Monofásico",
+                            "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²",
+                            "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"],
+                            "COMP": c_com_in, "DV": res["DV"]
+                        }
+                        inserir_circuito_permanente(c_dados)
+                        st.success(f"Circuito {c_num_in} adicionado!")
+                        st.rerun()
+
+            if st.session_state.lista_circuitos_calc:
+                st.markdown("#### ❌ Remover Circuito Selecionado")
+                col_rem_1, col_rem_2 = st.columns(2)
+                with col_rem_1:
+                    opcoes_circ = [circ["CIRC"] for circ in st.session_state.lista_circuitos_calc]
+                    circ_para_remover = st.selectbox("Identificação para Excluir:", opcoes_circ)
+                    if st.button("🗑️ Remover Circuito"):
+                        excluir_circuito_permanente(circ_para_remover)
+                        st.success("Circuito removido!")
+                        st.rerun()
+
+        if modo_eletrica == "Casa Toda" and not st.session_state.lista_circuitos_calc:
+            if lista_comodos_fisicos:
+                area_acumulada = sum(float(row) * float(row) for row in lista_comodos_fisicos)
+                num_comodos = len(lista_comodos_fisicos)
+                
+                if st.button("📊 Executar Dimensionamento Casa Toda (NBR 5410)", use_container_width=True):
+                    limpar_todos_circuitos_permanentes()
+                    planta_modelo = [
+                        {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(area_acumulada * 15))},
+                        {"CIRC": "2", "DESCRIÇÃO": "TOMADAS TUG GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(num_comodos * 600))}
+                    ]
+                    for item_el in planta_modelo:
+                        res = dimensionar_circuito_nbr5410_mda(item_el["POT_W"], dados_c["fase"], 15, item_el["DESCRIÇÃO"])
+                        c_dados = {
+                            "CIRC": item_el["CIRC"], "DESCRIÇÃO": item_el["DESCRIÇÃO"], "COMODO": item_el["COMODO"], "POT_W": int(item_el["POT_W"]), "POT_VA": res["VA"], "FP": res["FP"],
+                            "TIPO": "Monofásico", "DISJ": f"{res['DISJUNTORES']}A", "CURVA": res["CURVA"], "COND": f"{res['BITOLA']} mm²",
+                            "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res["IB"], "IB_CORR": res["IB_CORR"], "COMP": 15, "DV": res["DV"]
+                        }
+                        inserir_circuito_permanente(c_dados)
+                    st.success("Prancha elétrica da Casa Toda dimensionada e salva com sucesso!")
                     st.rerun()
+            else:
+                st.warning("Cadastre os ambientes na planta civil para gerar os circuitos automáticos da Casa Toda.")
 
-        elif modo_eletrica == "Casa Toda" and not listar_circuitos_permanentes() and lista_comodos_fisicos:
-            area_acumulada = sum(float(row[2]) * float(row[3]) for row in lista_comodos_fisicos)
-            res1 = dimensionar_circuito_nbr5410_mda(int(area_acumulada * 15), dados_c["fase"], 15, "Iluminação")
-            inserir_circuito_permanente({
-                "CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO GERAL", "COMODO": "Planta", 
-                "POT_W": int(area_acumulada * 15), "POT_VA": res1["VA"], "FP": 1.0, "TIPO": "Monofásico", 
-                "DISJ": f"{res1['DISJUNTORES']}A", "CURVA": "B", "COND": f"{res1['BITOLA']} mm²", 
-                "FASE": "R", "TENSÃO": int(dados_c["fase"]), "IB": res1["IB"], "IB_CORR": res1["IB_CORR"], 
-                "COMP": 15, "DV": res1["DV"]
-            })
-
-        circuitos_ativos = listar_circuitos_permanentes()
-        if circuitos_ativos: 
-            st.dataframe(pd.DataFrame(circuitos_ativos), use_container_width=True, hide_index=True)
+        if st.session_state.lista_circuitos_calc:
+            st.markdown("#### 📋 Prancha MDA - Circuitos Ativos (Salvos no Banco)")
+            st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum circuito programado ou calculado até o momento.")
+    tab_hidraulica = global_tabs
+    tab_gas = global_tabs
 
     with tab_hidraulica:
         st.write("### 🚰 Escopo e Cubagem Hidráulica")
-        modo_hidra = st.radio("Filtro de Exibição Hidráulica:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="m_hidra")
+        modo_hidra = st.radio("Seletor do Modo de Escopo Hidráulico:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_hidra_radio")
         st.session_state["modo_calculo_hidráulica"] = modo_hidra
-        m_hidra_lista = listar_materiais_calculados_fase("Hidráulica", modo_hidra)
-        if m_hidra_lista: 
-            st.dataframe(pd.DataFrame(m_hidra_lista), use_container_width=True, hide_index=True)
-        else: 
-            st.info("Utilize o botão de processamento mestre na aba Civil para preencher.")
+        
+        if modo_hidra == "Cálculo Global":
+            metragem_linear = st.number_input("Extensão Total da Rede Hidráulica (m):", min_value=1.0, value=25.0, key="lin_hidra_global")
+            
+            if st.button("📊 Executar Cálculo Completo Global - Hidráulica", use_container_width=True):
+                materiais_temp = [
+                    {"Etapa": "01. Alimentação", "Material": "Tubo PVC Soldável Azul 25mm (Barra de 6m)", "Quantidade": float(math.ceil(metragem_linear / 6.0)), "Unidade": "barra"},
+                    {"Etapa": "01. Alimentação", "Material": "Te 90 Graus Soldável PVC Integral 25mm", "Quantidade": float(math.ceil(metragem_linear * 0.15)), "Unidade": "un"},
+                    {"Etapa": "02. Conexões", "Material": "Joelho 90 Graus PVC Soldável c/ Bucha de Latão 25mm x 1/2", "Quantidade": float(math.ceil(metragem_linear * 0.35)), "Unidade": "un"},
+                    {"Etapa": "02. Conexões", "Material": "Fita Veda Rosca Premium de Alta Densidade 18mm x 25m", "Quantidade": float(math.ceil(metragem_linear * 0.05)), "Unidade": "rl"}
+                ]
+                salvar_materiais_calculados_fase("Hidráulica", materiais_temp, "Cálculo Global")
+                st.success("Cálculo hidráulico global completo salvo no banco!")
+                st.rerun()
+        else:
+            if lista_comodos_fisicos:
+                perimetro_acumulado = sum((float(row[2]) * 2) + (float(row[3]) * 2) for row in lista_comodos_fisicos)
+                st.metric("Perímetro Linear Acumulado (Cômodos)", f"{round(perimetro_acumulado, 2)} m")
+                
+                if st.button("📊 Executar Cálculo Completo por Cômodo - Hidráulica", use_container_width=True):
+                    hidra_temp = []
+                    itens_catalogo = listar_materiais_catalogo()
+                    for item in itens_catalogo:
+                        id_cat, fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item
+                        if fase_cat == "Hidráulica":
+                            hidra_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(perimetro_acumulado * fat_cat)), "Unidade": uni_cat})
+                    
+                    salvar_materiais_calculados_fase("Hidráulica", hidra_temp, "Por Prancha de Cômodos")
+                    st.success("Cálculo hidráulico completo por cômodo salvo no banco!")
+                    st.rerun()
+            else:
+                st.warning("Cadastre os ambientes na planta civil para liberar o cálculo por cômodo.")
+                
+        st.write("#### 📋 Resultados Ativos da Fase Hidráulica")
+        materials_fase_hidra = listar_materiais_calculados_fase("Hidráulica", modo_hidra)
+        if materials_fase_hidra:
+            st.dataframe(pd.DataFrame(materials_fase_hidra), use_container_width=True, hide_index=True)
 
     with tab_gas:
         st.write("### 🔥 Escopo e Cubagem de Gás Encanado")
-        modo_gas = st.radio("Filtro de Exibição de Gás:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="m_gas")
+        modo_gas = st.radio("Seletor do Modo de Escopo de Gás:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_gas_radio")
         st.session_state["modo_calculo_gás_encanado"] = modo_gas
-        m_gas_lista = listar_materiais_calculados_fase("Gás Encanado", modo_gas)
-        if m_gas_lista: 
-            st.dataframe(pd.DataFrame(m_gas_lista), use_container_width=True, hide_index=True)
-        else: 
-            st.info("Utilize o botão de processamento mestre na aba Civil para preencher.")
+        
+        if modo_gas == "Cálculo Global":
+            pontos_consumo = st.number_input("Quantidade de Pontos de Gás (Ex: Fogão, Aquecedor):", min_value=1, value=2, step=1, key="pontos_gas_global")
+            
+            if st.button("📊 Executar Cálculo Completo Global - Gás", use_container_width=True):
+                materiais_temp = [
+                    {"Etapa": "01. Tubulação de Carga", "Material": "Tubo Multicamadas de Gás PEX-AL-PEX 16mm", "Quantidade": float(pontos_consumo * 5.0), "Unidade": "m"},
+                    {"Etapa": "01. Tubulação de Carga", "Material": "Conector Fêmea Tipo Crimpagem PEX 16mm x 1/2 NPT", "Quantidade": float(pontos_consumo * 2), "Unidade": "un"},
+                    {"Etapa": "02. Segurança e Controle", "Material": "Válvula de Esfera para Gás Monobloco Angular 90° 1/2", "Quantidade": float(pontos_consumo), "Unidade": "un"},
+                    {"Etapa": "02. Segurança e Controle", "Material": "Regulador de Pressão de Gás GLP 7kg/h", "Quantidade": 1.0, "Unidade": "un"}
+                ]
+                salvar_materiais_calculados_fase("Gás Encanado", materiais_temp, "Cálculo Global")
+                st.success("Cálculo de gás global completo salvo no banco!")
+                st.rerun()
+        else:
+            if lista_comodos_fisicos:
+                num_comodos = len(lista_comodos_fisicos)
+                st.metric("Total de Ambientes Cadastrados (Gás)", f"{num_comodos} cômodos")
+                
+                if st.button("📊 Executar Cálculo Completo por Cômodo - Gás", use_container_width=True):
+                    gas_temp = []
+                    itens_catalogo = listar_materiais_catalogo()
+                    for item in itens_catalogo:
+                        id_cat, fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item
+                        if fase_cat == "Gás Encanado":
+                            gas_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
+                    
+                    salvar_materiais_calculados_fase("Gás Encanado", gas_temp, "Por Prancha de Cômodos")
+                    st.success("Cálculo de gás completo por cômodo salvo no banco!")
+                    st.rerun()
+            else:
+                st.warning("Cadastre os ambientes na planta civil para liberar o cálculo por cômodo.")
+                
+        st.write("#### 📋 Resultados Ativos da Rede de Gás")
+        materials_fase_gas = listar_materiais_calculados_fase("Gás Encanado", modo_gas)
+        if materials_fase_gas:
+            st.dataframe(pd.DataFrame(materials_fase_gas), use_container_width=True, hide_index=True)
+    tab_dados = global_tabs
+    tab_seguranca = global_tabs
+
     with tab_dados:
         st.write("### 🌐 Escopo e Cubagem de Internet e Redes")
-        modo_dados = st.radio("Filtro de Exibição de Redes:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="m_dados")
+        modo_dados = st.radio("Seletor do Modo de Escopo de Redes:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_dados_radio")
         st.session_state["modo_calculo_internet_dados"] = modo_dados
-        m_dados_lista = listar_materiais_calculados_fase("Internet/Dados", modo_dados)
-        if m_dados_lista: 
-            st.dataframe(pd.DataFrame(m_dados_lista), use_container_width=True, hide_index=True)
-        else: 
-            st.info("Utilize o botão de processamento mestre na aba Civil para preencher.")
+        
+        if modo_dados == "Cálculo Global":
+            pontos_rede = st.number_input("Quantidade Total de Pontos de Rede RJ45:", min_value=1, value=6, step=1, key="pontos_dados_global")
+            
+            if st.button("📊 Executar Cálculo Completo Global - Internet", use_container_width=True):
+                materiais_temp = [
+                    {"Etapa": "01. Infraestrutura Seca", "Material": "Eletroduto Corrugado de Alta Resistência PEAD Amarelo 3/4", "Quantidade": float(pontos_rede * 3.0), "Unidade": "m"},
+                    {"Etapa": "01. Infraestrutura Seca", "Material": "Caixa de Passagem Embutir Termoplástica 4x2", "Quantidade": float(pontos_rede), "Unidade": "un"},
+                    {"Etapa": "02. Cabeamento Estruturado", "Material": "Cabo de Rede Par Trançado UTP Cat6 Puro Cobre Homologado Anatel", "Quantidade": float(pontos_rede * 15.0), "Unidade": "m"},
+                    {"Etapa": "02. Cabeamento Estruturado", "Material": "Conector RJ45 Fêmea Modular Keystone Cat6 para Tomada", "Quantidade": float(pontos_rede), "Unidade": "un"}
+                ]
+                salvar_materiais_calculados_fase("Internet/Dados", materiais_temp, "Cálculo Global")
+                st.success("Cálculo de internet global completo salvo no banco!")
+                st.rerun()
+        else:
+            if lista_comodos_fisicos:
+                num_comodos = len(lista_comodos_fisicos)
+                st.metric("Total de Ambientes Mapeados para Rede", f"{num_comodos} cômodos")
+                
+                if st.button("📊 Executar Cálculo Completo por Cômodo - Internet", use_container_width=True):
+                    dados_temp = []
+                    itens_catalogo = listar_materiais_catalogo()
+                    for item in itens_catalogo:
+                        id_cat, fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item
+                        if fase_cat == "Internet/Dados":
+                            dados_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
+                    
+                    salvar_materiais_calculados_fase("Internet/Dados", dados_temp, "Por Prancha de Cômodos")
+                    st.success("Cálculo de internet completo por cômodo salvo no banco!")
+                    st.rerun()
+            else:
+                st.warning("Cadastre os ambientes na planta civil para liberar o cálculo por cômodo.")
+                
+        st.write("#### 📋 Resultados Ativos da Rede de Internet/Dados")
+        materials_fase_dados = listar_materiais_calculados_fase("Internet/Dados", modo_dados)
+        if materials_fase_dados:
+            st.dataframe(pd.DataFrame(materials_fase_dados), use_container_width=True, hide_index=True)
 
     with tab_seguranca:
         st.write("### 🛡️ Escopo e Cubagem de Segurança Eletrônica")
-        modo_seg = st.radio("Filtro de Exibição de Segurança:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="m_seg")
+        modo_seg = st.radio("Seletor do Modo de Escopo de Segurança:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_seg_radio")
         st.session_state["modo_calculo_segurança"] = modo_seg
-        m_seg_lista = listar_materiais_calculados_fase("Segurança", modo_seg)
-        if m_seg_lista: 
-            st.dataframe(pd.DataFrame(m_seg_lista), use_container_width=True, hide_index=True)
-        else: 
-            st.info("Utilize o botão de processamento mestre na aba Civil para preencher.")
+        
+        if modo_seg == "Cálculo Global":
+            num_cameras = st.number_input("Quantidade Total de Câmeras IP CFTV:", min_value=1, value=4, step=1, key="num_cam_global")
+            
+            if st.button("📊 Executar Cálculo Completo Global - Segurança", use_container_width=True):
+                materiais_temp = [
+                    {"Etapa": "01. Dispositivos", "Material": "Câmera Bullet IP Intelbras Full HD 1080p Lente 2.8mm POE", "Quantidade": float(num_cameras), "Unidade": "un"},
+                    {"Etapa": "01. CFTV", "Material": "Cabo Coaxial Flexível RF 4mm + Bipolar 80% Malha Cobre (Bobina)", "Quantidade": float(num_cameras * 15.0), "Unidade": "m"},
+                    {"Etapa": "01. CFTV", "Material": "Balun de Vídeo Passivo HD 400 Metros contra Surtos", "Quantidade": float(num_cameras * 2), "Unidade": "un"},
+                    {"Etapa": "02. Perímetro e Alarme", "Material": "Central de Alarme Monitorável Cloud Wi-Fi/GPRS com Teclado", "Quantidade": 1.0, "Unidade": "un"}
+                ]
+                salvar_materiais_calculados_fase("Segurança", materiais_temp, "Cálculo Global")
+                st.success("Cálculo de segurança global completo salvo no banco!")
+                st.rerun()
+        else:
+            if lista_comodos_fisicos:
+                num_comodos = len(lista_comodos_fisicos)
+                st.metric("Total de Ambientes Monitorados (Segurança)", f"{num_comodos} cômodos")
+                
+                if st.button("📊 Executar Cálculo Completo por Cômodo - Segurança", use_container_width=True):
+                    seg_temp = []
+                    itens_catalogo = listar_materiais_catalogo()
+                    for item in itens_catalogo:
+                        id_cat, fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item
+                        if fase_cat == "Segurança":
+                            seg_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(num_comodos * fat_cat)), "Unidade": uni_cat})
+                    
+                    salvar_materiais_calculados_fase("Segurança", seg_temp, "Por Prancha de Cômodos")
+                    st.success("Cálculo de segurança completo por cômodo salvo no banco!")
+                    st.rerun()
+            else:
+                st.warning("Cadastre os ambientes na planta civil para liberar o cálculo por cômodo.")
+                
+        st.write("#### 📋 Resultados Ativos da Rede de Segurança")
+        materials_fase_seg = listar_materiais_calculados_fase("Segurança", modo_seg)
+        if materials_fase_seg:
+            st.dataframe(pd.DataFrame(materials_fase_seg), use_container_width=True, hide_index=True)
+    tab_solar = global_tabs
+    tab_catalogo = global_tabs
+    tab_pdf = global_tabs
 
     with tab_solar:
         st.write("### ☀️ Escopo e Dimensionamento Solar Fotovoltaico")
-        modo_solar = st.radio("Filtro de Exibição Solar:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="m_solar")
+        modo_solar = st.radio("Seletor do Modo de Escopo Solar:", ["Cálculo Global", "Por Prancha de Cômodos"], horizontal=True, key="modo_calc_solar_radio")
         st.session_state["modo_calculo_energia_solar"] = modo_solar
-        m_solar_lista = listar_materiais_calculados_fase("Energia Solar", modo_solar)
-        if m_solar_lista: 
-            st.dataframe(pd.DataFrame(m_solar_lista), use_container_width=True, hide_index=True)
-        else: 
-            st.info("Utilize o botão de processamento mestre na aba Civil para preencher.")
+        
+        if modo_solar == "Cálculo Global":
+            consumo_mes = st.number_input("Consumo Médio Mensal Alvo (kWh):", min_value=50, value=350, step=10, key="consumo_mes_global")
+            
+            if st.button("📊 Executar Cálculo Completo Global - Solar", use_container_width=True):
+                num_paineis = float(math.ceil(consumo_mes / 45.0))
+                materiais_temp = [
+                    {"Etapa": "01. Geração", "Material": "Painel Solar Fotovoltaico Monocristalino Jinko 550W", "Quantidade": num_paineis, "Unidade": "un"},
+                    {"Etapa": "02. Inversão", "Material": "Inversor String Growatt 3kW On-Grid 220V com Wi-Fi Integrado", "Quantidade": 1.0, "Unidade": "un"},
+                    {"Etapa": "03. Proteção DC", "Material": "String Box Solar 2 Strings 1000V DC com DPS e Fusíveis", "Quantidade": 1.0, "Unidade": "un"},
+                    {"Etapa": "04. Estrutural", "Material": "Perfil de Alumínio Anodizado Linha Solar para Fixação de Trilhos", "Quantidade": float(math.ceil(num_paineis * 2.5)), "Unidade": "m"}
+                ]
+                salvar_materiais_calculados_fase("Energia Solar", materiais_temp, "Cálculo Global")
+                st.success("Cálculo solar fotovoltaico global completo salvo no banco!")
+                st.rerun()
+        else:
+            if lista_comodos_fisicos:
+                area_acumulada = sum(float(row[2]) * float(row[3]) for row in lista_comodos_fisicos)
+                st.metric("Área de Telhado Equivalente Estimada", f"{round(area_acumulada * 0.3, 2)} m²")
+                
+                if st.button("📊 Executar Cálculo Completo por Cômodo - Solar", use_container_width=True):
+                    solar_temp = []
+                    itens_catalogo = listar_materiais_catalogo()
+                    for item in itens_catalogo:
+                        id_cat, fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item
+                        if fase_cat == "Energia Solar":
+                            solar_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(fat_cat)), "Unidade": uni_cat})
+                    
+                    salvar_materiais_calculados_fase("Energia Solar", solar_temp, "Por Prancha de Cômodos")
+                    st.success("Cálculo solar completo por cômodo salvo no banco!")
+                    st.rerun()
+            else:
+                st.warning("Cadastre os ambientes na planta civil para liberar o cálculo por cômodo.")
+                
+        st.write("#### 📋 Resultados Ativos da Fase Energia Solar")
+        materials_fase_solar = listar_materiais_calculados_fase("Energia Solar", modo_solar)
+        if materials_fase_solar:
+            st.dataframe(pd.DataFrame(materials_fase_solar), use_container_width=True, hide_index=True)
 
     with tab_catalogo:
+        st.write("### 📂 Catálogo Técnico de Insumos Cadastrados")
         cat_df = listar_materiais_catalogo()
         if cat_df: 
             st.dataframe(pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Fator Base", "Unidade"]), use_container_width=True, hide_index=True)
-
+        else:
+            st.info("O catálogo de insumos técnicos está vazio no momento.")
     with tab_pdf:
         st.write("### 🖨️ Central de Emissão")
-        if st.button("🔄 Preparar Relatório Técnico"):
+        st.write("Gere o memorial descritivo completo da obra compilando os relatórios de todas as disciplinas.")
+        
+        if st.button("🔄 Preparar Relatório Técnico", use_container_width=True):
             pdf_dados = gerar_pdf_completo_obra()
             st.download_button(
                 label="📥 Baixar Memorial Técnico Unificado (PDF)", 
                 data=pdf_dados, 
                 file_name="memorial_de_engenharia_unificado.pdf", 
                 mime="application/pdf", 
-                key="btn_pdf_real"
+                key="btn_pdf_real",
+                use_container_width=True
             )
 
+# Cláusula de inicialização segura do ecossistema Fênix EngCalculus
 if __name__ == "__main__":
-    init_db()  # Executa a inicialização estrutural das tabelas locais
+    init_db()  # Executa a inicialização estrutural e carrega os materiais massivos
     main()
