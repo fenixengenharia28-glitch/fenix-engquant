@@ -5,25 +5,21 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # Importação dos módulos locais soltos na mesma pasta raiz do projeto
 from db_functions import *
 from calculus_engine import *
+from style_utils import *
+
 # Configuração primária obrigatória da janela do navegador
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
-
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elementos = []
     
-    estilos = getSampleStyleSheet()
-    estilo_sub = ParagraphStyle('SubTitulo', parent=estilos['Heading2'], fontSize=14, textColor=colors.HexColor('#1E3A8A'), spaceAfter=10)
-    estilo_celula = ParagraphStyle('Celula', parent=estilos['Normal'], fontSize=9, alignment=1)
-    estilo_celula_esq = ParagraphStyle('CelulaEsq', parent=estilos['Normal'], fontSize=9, alignment=0)
-    estilo_aviso_tit = ParagraphStyle('AvisoTit', parent=estilos['Normal'], fontSize=10, textColor=colors.HexColor('#D97706'))
-    estilo_aviso_corpo = ParagraphStyle('AvisoCorpo', parent=estilos['Normal'], fontSize=8.5)
+    # Requisita a folha de estilos limpa do seu arquivo style_utils.py
+    estilo_sub, estilo_celula, estilo_celula_esq, estilo_aviso_tit, estilo_aviso_corpo = obter_estilos_pdf()
     
     cabo_padrao = "16 mm²"
     dj_padrao = "Disjuntor Geral 50A"
@@ -45,10 +41,11 @@ def gerar_pdf_completo_obra():
             tbl_d = [[Paragraph("<b>Etapa</b>", estilo_celula), Paragraph("<b>Insumo Otimizado</b>", estilo_celula_esq), Paragraph("<b>Quantidade</b>", estilo_celula), Paragraph("<b>Unidade</b>", estilo_celula)]]
             for mat in lista: 
                 tbl_d.append([Paragraph(mat["Etapa"], estilo_celula), Paragraph(mat["Material"], estilo_celula_esq), Paragraph(str(mat["Quantidade"]), estilo_celula), Paragraph(mat["Unidade"], estilo_celula)])
-            t_m = Table(tbl_d, colWidths=[130.0, 400.0, 140.0, 80.0])
+            
+            # Larguras estritas somando 535 pontos (limite real da folha A4 Portrait)
+            t_m = Table(tbl_d, colWidths=[100.0, 275.0, 90.0, 70.0])
             t_m.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor(col_hex)), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')), ('PADDING', (0,0), (-1,-1), 3)]))
             elementos.append(t_m)
-
     circuitos_salvos = listar_circuitos_permanentes()
 
     elementos.append(PageBreak())
@@ -68,8 +65,8 @@ def gerar_pdf_completo_obra():
         Paragraph("• <b>Identificação de Circuitos:</b> Todas as chaves disjuntoras devem receber etiquetas correspondentes à prancha MDA sob risco de interdição técnica.", estilo_aviso_corpo),
         Paragraph("• <b>Torque e Reaperto Técnico:</b> Realizar inspeção semestral de torque nos bornes de conexão dos disjuntores para evitar pontos quentes e perdas por efeito Joule.", estilo_aviso_corpo)
     ]
-    t_av = Table([[caviso]], colWidths=[710.0])
-    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFBEB')), ('BORDER', (0,0), (-1,-1), 1, colors.HexColor('#D97706')), ('PADDING', (0,0), (-1,-1), 8)]))
+    t_av = Table([[caviso]], colWidths=[535.0])
+    t_av.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), COR_FUNDO_AVISO), ('BORDER', (0,0), (-1,-1), 1, COR_ALERTA), ('PADDING', (0,0), (-1,-1), 8)]))
     elementos.append(t_av)
     
     doc.build(elementos)
@@ -77,7 +74,7 @@ def gerar_pdf_completo_obra():
     return buffer
 def renderizar_sidebar():
     with st.sidebar:
-        st.markdown("<h2 style='color:#FFFFFF; background-color:#1E3A8A; padding:10px; border-radius:5px; text-align:center;'>⚙️ CENTRAL FÊNIX</h2>", unsafe_allow_html=True)
+        st.markdown(banner_sidebar(), unsafe_allow_html=True)
         st.write("### 👤 Gestão de Clientes")
         lista_cli = listar_clientes_db()
         if lista_cli:
@@ -98,7 +95,6 @@ def renderizar_sidebar():
                     inserir_cliente_db(c_nome, c_end, c_cid)
                     st.success("Cliente Salvo!")
                     st.rerun()
-
         st.markdown("---")
         st.write("### 📦 Catálogo de Materiais")
         with st.expander("➕ Cadastrar Insumo Técnico"):
@@ -165,12 +161,12 @@ def main():
     concessionaria_sel = st.selectbox("Escolha a Concessionária de Energia Alvo do Brasil:", list(concessionarias_locais.keys()))
     dados_c = concessionarias_locais[concessionaria_sel]
 
-    # Cria o contêiner central e o armazena de forma estruturada para indexação segura
+    # Guarda a lista ordenada de abas no session_state para extração limpa
     st.session_state["active_tabs_fenix"] = st.tabs([
         "🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", 
         "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"
     ])
-    # Desestruturação e isolamento do índice correspondente à Aba Civil
+    # Extração estável do índice correspondente à Aba Civil
     tab_civil = st.session_state["active_tabs_fenix"][0]
 
     with tab_civil:
@@ -220,7 +216,6 @@ def main():
                 salvar_materiais_calculados_fase("Civil", st.session_state.lista_materials_civil)
                 st.rerun()
         else:
-            # Sincroniza o estado de exibição buscando os dados permanentes guardados no banco
             st.session_state.lista_materials_civil = listar_materiais_calculados_fase("Civil")
             
             if lista_comodos_fisicos:
@@ -237,7 +232,7 @@ def main():
                     
                     itens_catalogo = listar_materiais_catalogo()
                     for item in itens_catalogo:
-                        fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item[1], item[2], item[3], float(item[4]), item[5]
+                        id_cat, fase_cat, etapa_cat, nome_cat, fat_cat, uni_cat = item[0], item[1], item[2], item[3], float(item[4]), item[5]
                         
                         if fase_cat == "Civil":
                             civil_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(area_acumulada * fat_cat)), "Unidade": uni_cat})
@@ -252,7 +247,6 @@ def main():
                         elif fase_cat == "Energia Solar":
                             solar_temp.append({"Etapa": etapa_cat, "Material": nome_cat, "Quantidade": float(math.ceil(fat_cat)), "Unidade": uni_cat})
                     
-                    # SALVAMENTO DEFINITIVO DE TODAS AS DISCIPLINAS NO BANCO DE DADOS LOCAL
                     salvar_materiais_calculados_fase("Civil", civil_temp)
                     salvar_materiais_calculados_fase("Hidráulica", hidra_temp)
                     salvar_materiais_calculados_fase("Gás Encanado", gas_temp)
@@ -260,7 +254,6 @@ def main():
                     salvar_materiais_calculados_fase("Segurança", seg_temp)
                     salvar_materiais_calculados_fase("Energia Solar", solar_temp)
                     
-                    # Atualiza variáveis na memória volátil da sessão atual
                     st.session_state.lista_materials_civil = civil_temp
                     st.session_state.lista_materials_hidraulicos = hidra_temp
                     st.session_state.lista_materials_gas = gas_temp
@@ -268,7 +261,6 @@ def main():
                     st.session_state.lista_materials_seguranca = seg_temp
                     st.session_state.lista_materials_solar = solar_temp
                     
-                    # Limpa e pré-dimensiona os circuitos automáticos de base do modo geral
                     limpar_todos_circuitos_permanentes()
                     planta_modelo = [
                         {"CIRC": "1", "DESCRIÇÃO": "ILUMINAÇÃO GERAL", "COMODO": "Planta", "POT_W": int(math.ceil(area_acumulada * 15))},
@@ -289,7 +281,7 @@ def main():
                     
         if st.session_state.lista_materials_civil: 
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True, hide_index=True)
-    # Isolamento do índice correspondente à Aba Elétrica
+    # Extração estável do índice correspondente à Aba Elétrica
     tab_eletrica = st.session_state["active_tabs_fenix"][1]
 
     with tab_eletrica:
@@ -348,14 +340,12 @@ def main():
             st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum circuito programado ou calculado até o momento.")
-    # Extração estável e segura das abas por índices numéricos correspondentes
+    # Extração estável e individualizada das abas de utilidades por índices correspondentes
     tab_hidraulica = st.session_state["active_tabs_fenix"][2]
     tab_gas = st.session_state["active_tabs_fenix"][3]
     tab_dados = st.session_state["active_tabs_fenix"][4]
     tab_seguranca = st.session_state["active_tabs_fenix"][5]
     tab_solar = st.session_state["active_tabs_fenix"][6]
-    tab_catalogo = st.session_state["active_tabs_fenix"][7]
-    tab_pdf = st.session_state["active_tabs_fenix"][8]
 
     with tab_hidraulica:
         st.session_state.lista_materials_hidraulicos = listar_materiais_calculados_fase("Hidráulica")
@@ -391,6 +381,9 @@ def main():
             st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum componente solar gerado. Clique em 'Processar Insumos' na aba Civil.")
+    # Extração estável e individualizada das últimas duas abas
+    tab_catalogo = st.session_state["active_tabs_fenix"][7]
+    tab_pdf = st.session_state["active_tabs_fenix"][8]
 
     with tab_catalogo:
         cat_df = listar_materiais_catalogo()
