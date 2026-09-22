@@ -42,8 +42,8 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row[0]:
-            return json.loads(row[0])
+        if row and row:
+            return json.loads(row)
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -62,7 +62,6 @@ def listar_clientes_db():
     rows = cursor.fetchall()
     conn.close()
     return rows
-
 def inserir_material_catalogo(fase, etapa, material, quantidade, unidade):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
@@ -87,15 +86,14 @@ def atualizar_lote_materiais_fase(fase, lista_materiais):
                        (fase, m.get("Etapa", "Geral"), m.get("Material", ""), float(m.get("Quantidade", 0.0)), m.get("Unidade", "un")))
     conn.commit()
     conn.close()
-# --- CORREÇÃO DEFINITIVA DO NAMEERROR: Ajustado o mapeamento e chamada correta da função ---
 if "db_sync_completo" not in st.session_state:
     raw_db = listar_materiais_catalogo()
-    st.session_state.lista_materials_civil = [{"Etapa": r[2], "Material": r[3], "Quantidade": r[4], "Unidade": r[5]} for r in raw_db if r[1] == "Civil"]
+    st.session_state.lista_materials_civil = [{"Etapa": r, "Material": r, "Quantidade": r, "Unidade": r} for r in raw_db if r == "Civil"]
     st.session_state.lista_materials_eletricos = carregar_dados_permanentes("materials_eletricos", [])
-    st.session_state.lista_materials_hidraulicos = [{"Etapa": r[2], "Material": r[3], "Quantidade": r[4], "Unidade": r[5]} for r in raw_db if r[1] == "Hidráulica"]
-    st.session_state.lista_materials_gas = [{"Etapa": r[2], "Material": r[3], "Quantidade": r[4], "Unidade": r[5]} for r in raw_db if r[1] == "Gás Encanado"]
-    st.session_state.lista_materials_dados = [{"Etapa": r[2], "Material": r[3], "Quantidade": r[4], "Unidade": r[5]} for r in raw_db if r[1] == "Internet/Dados"]
-    st.session_state.lista_materials_seguranca = [{"Etapa": r[2], "Material": r[3], "Quantidade": r[4], "Unidade": r[5]} for r in raw_db if r[1] == "Segurança"]
+    st.session_state.lista_materials_hidraulicos = [{"Etapa": r, "Material": r, "Quantidade": r, "Unidade": r} for r in raw_db if r == "Hidráulica"]
+    st.session_state.lista_materials_gas = [{"Etapa": r, "Material": r, "Quantidade": r, "Unidade": r} for r in raw_db if r == "Gás Encanado"]
+    st.session_state.lista_materials_dados = [{"Etapa": r, "Material": r, "Quantidade": r, "Unidade": r} for r in raw_db if r == "Internet/Dados"]
+    st.session_state.lista_materials_seguranca = [{"Etapa": r, "Material": r, "Quantidade": r, "Unidade": r} for r in raw_db if r == "Segurança"]
     
     st.session_state.funcionarios = carregar_dados_permanentes("funcionarios", [
         {"id": 1, "Nome": "Eng. Carlos Silva", "Função": "Responsável Técnico", "CREA_RE": "MG20231045", "Responsavel": True}
@@ -202,7 +200,9 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             bitola_final = bitolas_comerciais[idx + 1]
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
+        
+    # CORREÇÃO DEFINITIVA DO NAMEERROR: Matriz regulamentar preenchida corretamente
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= iz_cabo:
@@ -212,19 +212,18 @@ def dimensionar_circuito_nbr5410(potencia, tensao, comprimento, tipo_carga):
             disjuntor_final = dj
             break
     return bitola_final, disjuntor_final, "B" if "Iluminação" in tipo_carga else "C", round(ib, 2)
-
 col_c1, col_c2 = st.columns(2)
 with col_c1:
     st.write("### 👤 Central de Clientes (Gravar e Selecionar)")
     lista_clientes = listar_clientes_db()
-    opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
+    opcoes_clientes = ["-- Cadastrar Novo Cliente --"] + [f"ID {c} - {c}" for c in lista_clientes]
     cliente_selecionado = st.selectbox("📂 Escolher Cliente Salvo:", opcoes_clientes)
     if cliente_selecionado != "-- Cadastrar Novo Cliente --":
-        id_cli = int(cliente_selecionado.split(" - ")[0].replace("ID ", ""))
-        dados_cli_atual = [c for c in lista_clientes if c[0] == id_cli][0]
-        cliente_nome = st.text_input("Nome Completo do Cliente:", value=dados_cli_atual[1])
-        cliente_endereco = st.text_input("Endereço da Obra:", value=dados_cli_atual[2])
-        cliente_cidade = st.text_input("Cidade / UF:", value=dados_cli_atual[3])
+        id_cli = int(cliente_selecionado.split(" - ").replace("ID ", ""))
+        dados_cli_atual = [c for c in lista_clientes if c == id_cli]
+        cliente_nome = st.text_input("Nome Completo do Cliente:", value=dados_cli_atual)
+        cliente_endereco = st.text_input("Endereço da Obra:", value=dados_cli_atual)
+        cliente_cidade = st.text_input("Cidade / UF:", value=dados_cli_atual)
     else:
         cliente_nome = st.text_input("Nome Completo do Cliente:", value="Condomínio Residencial Bella Vista")
         cliente_endereco = st.text_input("Endereço da Obra:", value="Av. das Palmeiras, nº 450")
@@ -282,7 +281,7 @@ with tab_civil:
         if st.button("💾 Salvar Alterações da Fase Civil"):
             st.session_state.lista_materials_civil = edited_civil.to_dict(orient="records")
             atualizar_lote_materiais_fase("Civil", st.session_state.lista_materials_civil)
-            st.success("Fase civil salva e sincronizada fisicamente no banco!")
+            st.success("Fase civil salva no banco!")
             st.rerun()
 with tab_eletrica:
     st.write("### ⚡ Dimensionamento Elétrico NBR 5410")
@@ -300,6 +299,7 @@ with tab_eletrica:
             st.session_state.lista_circuitos_calc = []
             for item in planta_modelo:
                 tensao_item = dados_c["linha"] if item["TIPO"] == "Bifásico" else dados_c["fase"]
+                # CORREÇÃO DEFINITIVA DO CRASH: Alterado de curva para crv conforme o motor
                 b, dj, crv, ib_c = dimensionar_circuito_nbr5410(item["POT_W"], tensao_item, item["COMP"], item["DESCRIÇÃO"])
                 st.session_state.lista_circuitos_calc.append({
                     "CIRC": item["CIRC"], "DESCRIÇÃO": item["DESCRIÇÃO"], "COMODO": item["COMODO"], "POT_W": int(item["POT_W"]), "TIPO": item["TIPO"],
@@ -417,7 +417,6 @@ with tab_seguranca:
             st.session_state.lista_materials_seguranca = edited_seg.to_dict(orient="records")
             atualizar_lote_materiais_fase("Segurança", st.session_state.lista_materials_seguranca)
             st.rerun()
-
 with tab_catalogo:
     st.write("### 📦 Cadastrar Novo Produto no Catálogo")
     with st.form("form_catalogo_direto", clear_on_submit=True):
