@@ -89,7 +89,6 @@ def excluir_material_db(id_material):
     cursor.execute("DELETE FROM materiais_catalogo WHERE id = ?", (id_material,))
     conn.commit()
     conn.close()
-
 def inserir_membro_equipe(nome, funcao, registro, responsavel):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
@@ -151,7 +150,7 @@ def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, 
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
         
-    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= (iz_cabo * fca * fct):
@@ -244,23 +243,26 @@ with st.sidebar:
                 inserir_cliente_db(c_nome, c_end, c_cid)
                 st.success("Cliente Salvo!")
                 st.rerun()
+with st.sidebar:
+    st.markdown("---")
+    
+    # DEMANDA ATENDIDA: Cadastro de materiais encapsulado em menu suspenso/colapsável
+    st.write("### 📦 Materiais do Catálogo")
+    with st.expander("➕ Cadastrar Insumo Técnico"):
+        with st.form("form_catalogo_mat", clear_on_submit=True):
+            mat_fase = st.selectbox("Segmento:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
+            mat_etapa = st.text_input("Etapa de Aplicação:")
+            mat_nome = st.text_input("Descrição do Material:")
+            mat_qtd = st.number_input("Quantidade:", value=1.0, min_value=0.1)
+            mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
+            if st.form_submit_button("💾 Salvar Material"):
+                if mat_nome and mat_etapa:
+                    inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_qtd, mat_uni)
+                    st.success("Adicionado!")
+                    st.rerun()
 
     st.markdown("---")
-    st.write("### 📦 Cadastro de Materiais")
-    with st.form("form_catalogo_mat", clear_on_submit=True):
-        mat_fase = st.selectbox("Segmento Alvo:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
-        mat_etapa = st.text_input("Etapa de Aplicação:")
-        mat_nome = st.text_input("Descrição do Insumo Técnico:")
-        mat_qtd = st.number_input("Quantidade:", value=1.0, min_value=0.1)
-        mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
-        if st.form_submit_button("💾 Gravar no Catálogo"):
-            if mat_nome and mat_etapa:
-                inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_qtd, mat_uni)
-                st.success("Material adicionado ao catálogo!")
-                st.rerun()
-
-    st.markdown("---")
-    st.write("### 👥 Equipe e Responsáveis")
+    st.write("### 👥 Equipe e Engenheiros")
     lista_eq = listar_equipe_tecnica()
     if lista_eq:
         df_eq_view = pd.DataFrame(lista_eq, columns=["ID", "Nome", "Função", "Registro", "Responsável"])
@@ -268,14 +270,14 @@ with st.sidebar:
         id_eq_op = st.number_input("ID do Membro para Ação:", min_value=1, step=1, key="op_eq_id")
         if st.button("❌ Remover Membro", use_container_width=True):
             excluir_membro_equipe(id_eq_op)
-            st.success("Membro removido!")
+            st.success("Removido!")
             st.rerun()
                 
     with st.expander("➕ Cadastrar Membro na Equipe"):
         eq_nome = st.text_input("Nome Completo:")
         eq_func = st.selectbox("Função:", ["Responsável Técnico", "Eletricista Instalador", "Mestre de Obras", "Projetista"])
         eq_reg = st.text_input("Registro Profissional:")
-        eq_resp = st.checkbox("Marcar como Responsável Técnico?")
+        eq_resp = st.checkbox("Marcar como RT?")
         if st.button("💾 Gravar Membro"):
             if eq_nome and eq_reg:
                 inserir_membro_equipe(eq_nome, eq_func, eq_reg, eq_resp)
@@ -308,18 +310,6 @@ with tab_civil:
             salvar_dados_permanentes("comodos", st.session_state.comodos)
             st.rerun()
     if st.session_state.comodos: st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
-
-    st.markdown("---")
-    area_obra = st.number_input("Área Construída Total (m²):", min_value=10.0, value=70.0)
-    perimetro_paredes = st.number_input("Perímetro Total das Paredes (m):", min_value=0.0, value=45.0)
-    if st.button("📊 Processar Cubagem Global de Insumos Civis"):
-        st.session_state.lista_materials_civil = [
-            {"Etapa": "01. Locação", "Material": "Tábua de Pinus 30cm x 3m", "Quantidade": float(math.ceil(perimetro_paredes * 0.4)), "Unidade": "un"},
-            {"Etapa": "02. Infraestrutura", "Material": "Concreto Usinado Fck=30MPa", "Quantidade": 4.8, "Unidade": "m³"},
-            {"Etapa": "03. Estrutura", "Material": "Cimento CP II-Z-32 (Saco de 50kg)", "Quantidade": float(math.ceil(area_obra * 1.1)), "Unidade": "sc"}
-        ]
-        st.rerun()
-    if st.session_state.lista_materials_civil: st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True)
 
 with tab_eletrica:
     st.write("### ⚡ Escopo Relacional sob Critério Estruturado MDA (NBR 5410)")
@@ -423,7 +413,7 @@ def gerar_pdf_completo_obra():
     
     lista_cli_local = listar_clientes_db()
     if lista_cli_local:
-        c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local, lista_cli_local, lista_cli_local
+        c_nome_txt, c_end_txt, c_cid_txt = lista_cli_local[0][1], lista_cli_local[0][2], lista_cli_local[0][3]
     else:
         c_nome_txt, c_end_txt, c_cid_txt = "Condomínio Residencial Bella Vista", "Av. das Palmeiras, nº 450", "Belo Horizonte / MG"
         
@@ -438,9 +428,9 @@ def gerar_pdf_completo_obra():
     else: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Trifásico", "25.0 mm²", "80 A", dados_c["caixa_tri"]
 
     dados_padrao_pdf = [
-        [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Specific Técnica</b>", estilo_celula_esq)],
-        [Paragraph("Norma Concessionária Alvo", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
-        [Paragraph("Tipo de Fornecimento / Entrada", estilo_celula), Paragraph(f"{tipo_entrada} - ({detalhe_caixa})", estilo_celula_esq)],
+        [Paragraph("<b>Parâmetro Normativo</b>", estilo_celula), Paragraph("<b>Especificação Técnica</b>", estilo_celula_esq)],
+        [Paragraph("Norma Distribuidora", estilo_celula), Paragraph(dados_c["norma"], estilo_celula_esq)],
+        [Paragraph("Tipo de Fornecimento", estilo_celula), Paragraph(f"{tipo_entrada} - ({detalhe_caixa})", estilo_celula_esq)],
         [Paragraph("Cabo Geral", estilo_celula), Paragraph(cabo_padrao, estilo_celula_esq)],
         [Paragraph("Disjuntor Geral", estilo_celula), Paragraph(dj_padrao, estilo_celula_esq)]
     ]
@@ -474,9 +464,9 @@ def gerar_pdf_completo_obra():
                 Paragraph(f"{r_val}VA", estilo_celula), Paragraph(f"{s_val}VA", estilo_celula)
             ])
             
-        # DEMANDA ATENDIDA: Adição obrigatória do rodapé de Totais acumulados MDA
+        # DEMANDA ATENDIDA: Alinhamento central de todas as colunas de totais na prancha técnica
         dados_qdc_pdf.append([
-            Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>Carga Acumulada QDC</b>", estilo_celula_esq), Paragraph("-", estilo_celula),
+            Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>Carga Acumulada Centralizada</b>", estilo_celula), Paragraph("-", estilo_celula),
             Paragraph(f"<b>{sum_pot_w}W</b>", estilo_celula), Paragraph("-", estilo_celula), Paragraph(f"<b>{sum_pot_va}VA</b>", estilo_celula),
             Paragraph(f"<b>{round(sum_ib,1)}A</b>", estilo_celula), Paragraph(f"<b>{round(sum_ibr,1)}A</b>", estilo_celula), Paragraph("-", estilo_celula),
             Paragraph("-", estilo_celula), Paragraph("-", estilo_celula), Paragraph("-", estilo_celula),
