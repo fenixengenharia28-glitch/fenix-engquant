@@ -13,13 +13,14 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 # Configuração primária obrigatória do Streamlit
 st.set_page_config(page_title="Fênix EngCalculus Pro", layout="wide", page_icon="⚡")
 
-# --- ENGINE DO BANCO DE DADOS PERSISTENTE LOCAL ---
+# --- ENGINE DO BANCO DE DADOS PERSISTENTE LOCAL COM TODAS AS TABELAS CRUD ---
 def init_db():
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE IF NOT EXISTS configuracoes (id TEXT PRIMARY KEY, dados TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, endereco TEXT, cidade_uf TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS materiais_catalogo (id INTEGER PRIMARY KEY AUTOINCREMENT, fase TEXT, etapa TEXT, material TEXT, quantidade REAL, unidade TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS equipe_tecnica (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, registro TEXT, responsavel INTEGER)")
     conn.commit()
     conn.close()
 
@@ -41,7 +42,7 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row: return json.loads(row)
+        if row and row[0]: return json.loads(row[0])
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -61,6 +62,12 @@ def listar_clientes_db():
     conn.close()
     return rows
 
+def excluir_cliente_db(id_cliente):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM clientes WHERE id = ?", (id_cliente,))
+    conn.commit()
+    conn.close()
 def inserir_material_catalogo(fase, etapa, material, quantidade, unidade):
     conn = sqlite3.connect("fenix_database.db")
     cursor = conn.cursor()
@@ -75,6 +82,48 @@ def listar_materiais_catalogo():
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+def excluir_material_db(id_material):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM materiais_catalogo WHERE id = ?", (id_material,))
+    conn.commit()
+    conn.close()
+
+def atualizar_material_db(id_material, fase, etapa, material, quantidade, unidade):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE materiais_catalogo SET fase=?, etapa=?, material=?, quantidade=?, unidade=? WHERE id=?", (fase, etapa, material, quantidade, unidade, id_material))
+    conn.commit()
+    conn.close()
+def inserir_membro_equipe(nome, funcao, registro, responsavel):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO equipe_tecnica (nome, funcao, registro, responsavel) VALUES (?, ?, ?, ?)", (nome, funcao, registro, int(responsavel)))
+    conn.commit()
+    conn.close()
+
+def listar_equipe_tecnica():
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nome, funcao, registro, responsavel FROM equipe_tecnica")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def excluir_membro_equipe(id_membro):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM equipe_tecnica WHERE id = ?", (id_membro,))
+    conn.commit()
+    conn.close()
+
+def atualizar_membro_equipe(id_membro, nome, funcao, registro, responsavel):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE equipe_tecnica SET nome=?, funcao=?, registro=?, responsavel=? WHERE id=?", (nome, funcao, registro, int(responsavel), id_membro))
+    conn.commit()
+    conn.close()
 if "db_sync_completo" not in st.session_state:
     st.session_state.lista_materials_civil = []
     st.session_state.lista_materials_eletricos = []
@@ -83,14 +132,10 @@ if "db_sync_completo" not in st.session_state:
     st.session_state.lista_materials_dados = []
     st.session_state.lista_materials_seguranca = []
     st.session_state.lista_materials_solar = []
-    st.session_state.funcionarios = carregar_dados_permanentes("funcionarios", [
-        {"id": 1, "Nome": "Eng. Carlos Silva", "Função": "Responsável Técnico", "CREA_RE": "MG20231045", "Responsavel": True}
-    ])
     st.session_state.lista_circuitos_calc = carregar_dados_permanentes("circuitos", [])
     st.session_state.comodos = carregar_dados_permanentes("comodos", [])
     st.session_state.seguranca_insumos = carregar_dados_permanentes("seguranca", {"cameras": 4, "sensores": 3, "cabo_m": 100})
     st.session_state.db_sync_completo = True
-
 def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, fca=0.70, fct=1.0):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.80
     potencia_va = potencia / fp
@@ -120,7 +165,7 @@ def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, 
             iz_cabo = capacidades_corrente[idx + 1]
         else: break
         
-    disjuntores_comerciais = [6, 10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
+    disjuntores_comerciais = [10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100]
     disjuntor_final = 20
     for dj in disjuntores_comerciais:
         if dj >= ib and dj <= (iz_cabo * fca * fct):
@@ -191,51 +236,69 @@ def gerar_desenho_multifilar(cabo_pad, dj_pad, circuitos_list):
             d.add(Line(350, y, x_neutro, y, strokeColor=colors.blue, strokeWidth=0.8))
     return d
 with st.sidebar:
-    st.markdown(
-        """
-        <div style="background-color:#1E3A8A; padding:15px; border-radius:10px; text-align:center; margin-bottom:20px;">
-            <h2 style="color:#FFFFFF; margin:0; font-family:sans-serif; letter-spacing: 2px;">⚡ FÊNIX</h2>
-            <p style="color:#0D9488; margin:0; font-size:11px; font-weight:bold; letter-spacing: 1px;">ENGENHARIA & SISTEMAS</p>
-        </div>
-        """, unsafe_allow_html=True
-    )
+    st.markdown("<h2 style='color:#FFFFFF; background-color:#1E3A8A; padding:10px; border-radius:5px; text-align:center;'>⚙️ CENTRAL FÊNIX</h2>", unsafe_allow_html=True)
     
-    # DEMANDA ATENDIDA: Central de Clientes alocada integralmente no Lado Esquerdo
-    st.write("### 👤 Cadastro de Clientes")
-    lista_clientes = listar_clientes_db()
-    opcoes_clientes = ["-- Novo Cliente --"] + [f"ID {c[0]} - {c[1]}" for c in lista_clientes]
-    cliente_selecionado = st.selectbox("📂 Escolher Cliente Salvo:", opcoes_clientes)
-    
-    cliente_nome = st.text_input("Nome Completo do Cliente:", value="Condomínio Residencial Bella Vista")
-    cliente_endereco = st.text_input("Endereço da Obra:", value="Av. das Palmeiras, nº 450")
-    cliente_cidade = st.text_input("Cidade / UF:", value="Belo Horizonte / MG")
-    if st.button("💾 Salvar Cliente no SQLite"):
-        if cliente_nome and cliente_endereco:
-            inserir_cliente_db(cliente_nome, cliente_endereco, cliente_cidade)
-            st.success("Cliente gravado!")
+    # --- CRUD DE CLIENTE NA ESQUERDA (INCLUIR/DELETAR) ---
+    st.write("### 👤 Gestão de Clientes")
+    lista_cli = listar_clientes_db()
+    if lista_cli:
+        df_cli_view = pd.DataFrame(lista_cli, columns=["ID", "Nome", "Endereço", "Cidade/UF"])
+        st.dataframe(df_cli_view, use_container_width=True, hide_index=True)
+        id_cli_del = st.number_input("ID do Cliente para Remover:", min_value=1, step=1, key="del_cli_id")
+        if st.button("❌ Excluir Cliente", use_container_width=True):
+            excluir_cliente_db(id_cli_del)
+            st.success("Cliente removido!")
             st.rerun()
-
-    st.markdown("---")
-    
-    # DEMANDA ATENDIDA: Cadastro de Materiais alocado integralmente no Lado Esquerdo
-    st.write("### 📦 Cadastro de Materiais")
-    with st.form("form_catalogo_mat", clear_on_submit=True):
-        mat_fase = st.selectbox("Segmento Alvo:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
-        mat_etapa = st.text_input("Etapa de Aplicação (Ex: Infra, Fechamento):")
-        mat_nome = st.text_input("Descrição do Insumo Técnico:")
-        mat_qtd = st.number_input("Quantidade:", value=1.0, min_value=0.1)
-        mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
-        if st.form_submit_button("💾 Gravar no Catálogo"):
-            if mat_nome and mat_etapa:
-                inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_qtd, mat_uni)
-                st.success("Material adicionado ao catálogo!")
+            
+    with st.expander("➕ Adicionar Novo Cliente"):
+        c_nome = st.text_input("Nome do Cliente:")
+        c_end = st.text_input("Endereço:")
+        c_cid = st.text_input("Cidade/UF:")
+        if st.button("💾 Gravar Cliente"):
+            if c_nome and c_end:
+                inserir_cliente_db(c_nome, c_end, c_cid)
+                st.success("Cliente Salvo!")
                 st.rerun()
 
     st.markdown("---")
+    
+    # --- CRUD DE EQUIPE E RESPONSÁVEIS NA ESQUERDA (INCLUIR/ALTERAR/EXCLUIR) ---
     st.write("### 👥 Equipe e Responsáveis")
-    if st.session_state.funcionarios:
-        for idx, f in enumerate(list(st.session_state.funcionarios)):
-            st.caption(f"⭐ **{f['Nome']}** ({f['Função']}) - {f['CREA_RE']}")
+    lista_eq = listar_equipe_tecnica()
+    if lista_eq:
+        df_eq_view = pd.DataFrame(lista_eq, columns=["ID", "Nome", "Função", "Registro", "Responsável"])
+        st.dataframe(df_eq_view, use_container_width=True, hide_index=True)
+        
+        id_eq_op = st.number_input("ID do Membro para Ação:", min_value=1, step=1, key="op_eq_id")
+        col_op1, col_op2 = st.columns(2)
+        with col_op1:
+            if st.button("❌ Remover Membro"):
+                excluir_membro_equipe(id_eq_op)
+                st.success("Membro removido!")
+                st.rerun()
+        with col_op2:
+            membro_alt_check = st.checkbox("⚙️ Alterar Dados?")
+            
+        if membro_alt_check:
+            alt_nome = st.text_input("Novo Nome:")
+            alt_func = st.selectbox("Nova Função:", ["Responsável Técnico", "Eletricista Instalador", "Projetista", "Mestre de Obras"])
+            alt_reg = st.text_input("Novo Registro:")
+            alt_resp = st.checkbox("É o Responsável?")
+            if st.button("📝 Confirmar Alteração Equipe"):
+                atualizar_membro_equipe(id_eq_op, alt_nome, alt_func, alt_reg, alt_resp)
+                st.success("Equipe atualizada!")
+                st.rerun()
+                
+    with st.expander("➕ Cadastrar Membro na Equipe"):
+        eq_nome = st.text_input("Nome Completo:")
+        eq_func = st.selectbox("Função:", ["Responsável Técnico", "Eletricista Instalador", "Mestre de Obras", "Projetista"])
+        eq_reg = st.text_input("Registro Profissional:")
+        eq_resp = st.checkbox("Marcar como Responsável Técnico?")
+        if st.button("💾 Gravar Membro"):
+            if eq_nome and eq_reg:
+                inserir_membro_equipe(eq_nome, eq_func, eq_reg, eq_resp)
+                st.success("Membro alocado!")
+                st.rerun()
 CONCESSIONARIAS = {
     "CEMIG (MG) - ND-5.1": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 15000, "norma": "ND-5.1", "caixa_mono": "Caixa Tipo E", "caixa_bi": "Caixa Tipo F", "caixa_tri": "Caixa Tipo H"},
     "ENEL SP (SP) - CNC-OM": {"fase": 127, "linha": 220, "limite_mono": 12000, "limite_bi": 25000, "norma": "CNC-OM-BR-24-001", "caixa_mono": "Caixa Tipo A", "caixa_bi": "Caixa Tipo B", "caixa_tri": "Caixa Tipo C"},
@@ -246,22 +309,23 @@ CONCESSIONARIAS = {
     "ENERGISA MT/MS/TO/RO/AC": {"fase": 127, "linha": 220, "limite_mono": 10000, "limite_bi": 22000, "norma": "NT-03.EN", "caixa_mono": "Caixa Padrão E", "caixa_bi": "Caixa Padrão F", "caixa_tri": "Caixa Padrão H"}
 }
 
-st.write("### 🔌 Configuração Regulamentar da Infraestrutura")
+st.write("## 🏗️ Fênix EngCalculus Pro")
 concessionaria_sel = st.selectbox("Escolha a Concessionária de Energia Alvo do Brasil:", list(CONCESSIONARIAS.keys()))
 dados_c = CONCESSIONARIAS[concessionaria_sel]
 
-tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Ver Catálogo", "📥 PDF"])
-
+tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"])
 with tab_civil:
-    st.write("### 🧱 Configuração de Ambientes e Prancha de Áreas")
+    st.write("### 🧱 Configuração de Ambientes e Cubagem Civil")
     cc1, cc2, cc3 = st.columns(3)
-    with cc1: nome_c = st.text_input("Nome do Cômodo:")
+    with cc1: nome_c = st.text_input("Nome do Cômodo (Ex: Cozinha, Quarto):")
     with cc2: comp_c = st.number_input("Comprimento (m):", value=4.0)
     with cc3: larg_c = st.number_input("Largura (m):", value=3.5)
     if st.button("➕ Cadastrar Cômodo na Planta"):
-        st.session_state.comodos.append({"Cômodo": nome_c, "Comprimento": comp_c, "Largura": larg_c})
-        salvar_dados_permanentes("comodos", st.session_state.comodos)
-        st.rerun()
+        if nome_c:
+            st.session_state.comodos.append({"Cômodo": nome_c, "Comprimento": comp_c, "Largura": larg_c})
+            salvar_dados_permanentes("comodos", st.session_state.comodos)
+            st.rerun()
+            
     if st.session_state.comodos: st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
 
     st.markdown("---")
@@ -275,7 +339,6 @@ with tab_civil:
         ]
         st.rerun()
     if st.session_state.lista_materials_civil: st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True)
-
 with tab_eletrica:
     st.write("### ⚡ Escopo Relacional sob Critério Estruturado MDA (NBR 5410)")
     modo_eletrico = st.radio("Método de Lançamento:", ["Lote Automático (Casa Toda)", "Lançar Circuito Customizado Separado"], horizontal=True)
@@ -319,30 +382,33 @@ with tab_eletrica:
                 salvar_dados_permanentes("circuitos", st.session_state.lista_circuitos_calc)
                 st.rerun()
     if st.session_state.lista_circuitos_calc: st.dataframe(pd.DataFrame(st.session_state.lista_circuitos_calc), use_container_width=True)
-
 with tab_hidraulica:
     st.write("### 🚰 Rede Hidráulica")
     m_agua = st.number_input("Metragem Tubo PVC 25mm (m):", value=30)
     if st.button("Calcular Hidráulica"):
         st.session_state.lista_materials_hidraulicos = [{"Etapa": "01. Água Fria", "Material": "Tubo PVC Marrom 25mm", "Quantidade": float(math.ceil(m_agua/6)), "Unidade": "barra"}]
+    if st.session_state.lista_materials_hidraulicos: st.dataframe(pd.DataFrame(st.session_state.lista_materials_hidraulicos), use_container_width=True)
 
 with tab_gas:
     st.write("### 🔥 Rede de Gás")
     m_gas = st.number_input("Metragem Tubo Cobre 15mm (m):", value=12)
     if st.button("Calcular Gás"):
         st.session_state.lista_materials_gas = [{"Etapa": "01. Tubulação", "Material": "Tubo de Cobre 15mm Classe A", "Quantidade": float(m_gas), "Unidade": "m"}]
+    if st.session_state.lista_materials_gas: st.dataframe(pd.DataFrame(st.session_state.lista_materials_gas), use_container_width=True)
 
 with tab_dados:
     st.write("### 🌐 Redes de Internet")
     m_lan = st.number_input("Metragem Cabo LAN Cat6 (m):", value=100)
     if st.button("Calcular Internet"):
         st.session_state.lista_materials_dados = [{"Etapa": "01. Cabeamento", "Material": "Cabo LAN UTP Cat6", "Quantidade": float(m_lan), "Unidade": "m"}]
+    if st.session_state.lista_materials_dados: st.dataframe(pd.DataFrame(st.session_state.lista_materials_dados), use_container_width=True)
 
 with tab_seguranca:
     st.write("### 🛡️ Segurança Eletrônica")
     m_cam = st.number_input("Quantidade Câmeras IP IP67:", value=4)
     if st.button("Calcular Segurança"):
         st.session_state.lista_materials_seguranca = [{"Etapa": "01. CFTV", "Material": "Câmeras IP HD Bullet", "Quantidade": float(m_cam), "Unidade": "un"}]
+    if st.session_state.lista_materials_seguranca: st.dataframe(pd.DataFrame(st.session_state.lista_materials_seguranca), use_container_width=True)
 
 with tab_solar:
     st.write("### ☀️ Energia Solar Fotovoltaica (NBR 16690)")
@@ -355,11 +421,35 @@ with tab_solar:
         ]
         st.rerun()
     if st.session_state.lista_materials_solar: st.dataframe(pd.DataFrame(st.session_state.lista_materials_solar), use_container_width=True)
-
 with tab_catalogo:
-    st.write("### 📂 Visualização de Catálogo Geral Sincronizado SQLite")
+    st.write("### 📂 Gerenciamento Geral do Catálogo Sincronizado SQLite")
     cat_df = listar_materiais_catalogo()
-    if cat_df: st.dataframe(pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"]), use_container_width=True)
+    if cat_df:
+        df_cat_table = pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"])
+        st.dataframe(df_cat_table, use_container_width=True, hide_index=True)
+        
+        id_mat_op = st.number_input("ID do Material para Modificação/Remoção:", min_value=1, step=1, key="op_mat_id")
+        col_mat_b1, col_mat_b2 = st.columns(2)
+        with col_mat_b1:
+            if st.button("❌ Remover Material do Catálogo", use_container_width=True):
+                excluir_material_db(id_mat_op)
+                st.success("Item removido do banco físico!")
+                st.rerun()
+        with col_mat_b2:
+            check_alt_mat = st.checkbox("⚙️ Ativar Alteração Cadastral?")
+            
+        if check_alt_mat:
+            m_fase_a = st.selectbox("Nova Fase:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
+            m_etapa_a = st.text_input("Nova Etapa do Serviço:")
+            m_nome_a = st.text_input("Nova Descrição do Material:")
+            m_qtd_a = st.number_input("Nova Quantidade:", value=1.0)
+            m_uni_a = st.selectbox("Nova Unidade:", ["un", "m", "m²", "m³", "barra", "sc"])
+            if st.button("📝 Confirmar Alteração de Material"):
+                atualizar_material_db(id_mat_op, m_fase_a, m_etapa_a, m_nome_a, m_qtd_a, m_uni_a)
+                st.success("Dados atualizados no banco físico SQLite!")
+                st.rerun()
+    else:
+        st.info("Catálogo vazio. Utilize a barra lateral esquerda para realizar o cadastro inicial de insumos.")
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
@@ -372,12 +462,7 @@ def gerar_pdf_completo_obra():
     estilo_aviso_corpo = ParagraphStyle('AC', parent=estilos['BodyText'], fontSize=10, leading=13, alignment=4, spaceAfter=3)
     
     elementos = [Paragraph("<b>FÊNIX ENGENHARIA - MEMORIAL INTEGRADO DE QUANTITATIVOS (MODELO MDA)</b>", estilo_titulo), Spacer(1, 4)]
-    
-    c_nome_txt = cliente_nome if 'cliente_nome' in locals() and cliente_nome else "Bella Vista"
-    c_end_txt = cliente_endereco if 'cliente_endereco' in locals() and cliente_endereco else "Av Palmeiras"
-    c_cid_txt = cliente_cidade if 'cliente_cidade' in locals() and cliente_cidade else "BH/MG"
-    
-    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {c_nome_txt}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {c_end_txt}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {c_cid_txt}", estilo_celula_esq)]]
+    dados_cliente_tabela = [[Paragraph(f"<b>CLIENTE:</b> {cliente_nome}", estilo_celula_esq), Paragraph(f"<b>OBRA:</b> {cliente_endereco}", estilo_celula_esq), Paragraph(f"<b>LOCALIDADE:</b> {cliente_cidade}", estilo_celula_esq)]]
     t_cli = Table(dados_cliente_tabela, colWidths=[240.0, 260.0, 240.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
@@ -406,7 +491,7 @@ def gerar_pdf_completo_obra():
         for c in st.session_state.lista_circuitos_calc:
             p_va_val = c.get("POT_VA", c["POT_W"])
             r_val = p_va_val if c["FASE"] == "R" else (p_va_val//2 if "RS" in c["FASE"] else 0)
-            s_val = p_va_val if c["FASE"] == "S" else (p_va_val//2 if "RS" in c["FASE"] else 0)
+            s_val = p_va_val if c["FASE"] == "S" else (p_w_val//2 if "RS" in c["FASE"] else 0)
             dados_qdc_pdf.append([
                 Paragraph(str(c["CIRC"]), estilo_celula), Paragraph(str(c["DESCRIÇÃO"]), estilo_celula_esq), Paragraph(str(c.get("COMODO","Geral")), estilo_celula),
                 Paragraph(str(c["POT_W"]), estilo_celula), Paragraph(str(c.get("FP", 1.0)), estilo_celula), Paragraph(str(p_va_val), estilo_celula),
