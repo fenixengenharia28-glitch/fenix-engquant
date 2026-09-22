@@ -21,6 +21,7 @@ def init_db():
     cursor.execute("CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, endereco TEXT, cidade_uf TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS materiais_catalogo (id INTEGER PRIMARY KEY AUTOINCREMENT, fase TEXT, etapa TEXT, material TEXT, quantidade REAL, unidade TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS equipe_tecnica (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, registro TEXT, responsavel INTEGER)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS comodos_obra (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, comprimento REAL, largura REAL)")
     conn.commit()
     conn.close()
 
@@ -42,7 +43,7 @@ def carregar_dados_permanentes(chave, valor_padrao):
         cursor.execute("SELECT dados FROM configuracoes WHERE id = ?", (chave,))
         row = cursor.fetchone()
         conn.close()
-        if row and row[0]: return json.loads(row[0])
+        if row and row: return json.loads(row[0])
     except Exception:
         return valor_padrao
     return valor_padrao
@@ -110,6 +111,34 @@ def excluir_membro_equipe(id_membro):
     cursor.execute("DELETE FROM equipe_tecnica WHERE id = ?", (id_membro,))
     conn.commit()
     conn.close()
+def inserir_comodo_db(nome, comprimento, largura):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO comodos_obra (nome, comprimento, largura) VALUES (?, ?, ?)", (nome, comprimento, largura))
+    conn.commit()
+    conn.close()
+
+def listar_comodos_db():
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nome, comprimento, largura FROM comodos_obra")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def atualizar_comodo_db(id_comodo, nome, comprimento, largura):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE comodos_obra SET nome=?, comprimento=?, largura=? WHERE id=?", (nome, comprimento, largura, id_comodo))
+    conn.commit()
+    conn.close()
+
+def excluir_comodo_db(id_comodo):
+    conn = sqlite3.connect("fenix_database.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM comodos_obra WHERE id = ?", (id_comodo))
+    conn.commit()
+    conn.close()
 if "db_sync_completo" not in st.session_state:
     st.session_state.lista_materials_civil = []
     st.session_state.lista_materials_eletricos = []
@@ -119,9 +148,7 @@ if "db_sync_completo" not in st.session_state:
     st.session_state.lista_materials_seguranca = []
     st.session_state.lista_materials_solar = []
     st.session_state.lista_circuitos_calc = carregar_dados_permanentes("circuitos", [])
-    st.session_state.comodos = carregar_dados_permanentes("comodos", [])
     st.session_state.db_sync_completo = True
-
 def dimensionar_circuito_nbr5410_mda(potencia, tensao, comprimento, tipo_carga, fca=0.70, fct=1.0):
     fp = 1.0 if (tipo_carga in ["Iluminação", "TUE - Chuveiro"]) else 0.80
     potencia_va = potencia / fp
@@ -251,12 +278,12 @@ with st.sidebar:
             mat_fase = st.selectbox("Segmento:", ["Civil", "Elétrica", "Hidráulica", "Gás Encanado", "Internet/Dados", "Segurança", "Energia Solar"])
             mat_etapa = st.text_input("Etapa de Aplicação:")
             mat_nome = st.text_input("Descrição do Material:")
-            mat_qtd = st.number_input("Quantidade:", value=1.0, min_value=0.1)
+            mat_qtd = st.number_input("Quantidade Base:", value=1.0, min_value=0.1)
             mat_uni = st.selectbox("Unidade:", ["un", "m", "m²", "m³", "sc", "barra", "rl", "jg"])
             if st.form_submit_button("💾 Salvar Material"):
                 if mat_nome and mat_etapa:
                     inserir_material_catalogo(mat_fase, mat_etapa, mat_nome, mat_qtd, mat_uni)
-                    st.success("Adicionado!")
+                    st.success("Material adicionado com cálculo estrutural ativo!")
                     st.rerun()
 
     st.markdown("---")
@@ -299,18 +326,41 @@ dados_c = CONCESSIONARIAS[concessionaria_sel]
 
 tab_civil, tab_eletrica, tab_hidraulica, tab_gas, tab_dados, tab_seguranca, tab_solar, tab_catalogo, tab_pdf = st.tabs(["🧱 Civil", "⚡ Elétrica (Modelo MDA)", "🚰 Hidráulica", "🔥 Gás", "🌐 Internet", "🛡️ Segurança", "☀️ Energia Solar", "📂 Catálogo de Insumos", "📥 Emissão PDF"])
 with tab_civil:
-    st.write("### 🧱 Configuração de Ambientes")
-    cc1, cc2, cc3 = st.columns(3)
-    with cc1: nome_c = st.text_input("Nome do Cômodo:")
-    with cc2: comp_c = st.number_input("Comprimento (m):", value=4.0)
-    with cc3: larg_c = st.number_input("Largura (m):", value=3.5)
-    if st.button("➕ Cadastrar Cômodo na Planta"):
-        if nome_c:
-            st.session_state.comodos.append({"Cômodo": nome_c, "Comprimento": comp_c, "Largura": larg_c})
-            salvar_dados_permanentes("comodos", st.session_state.comodos)
-            st.rerun()
-    if st.session_state.comodos: st.dataframe(pd.DataFrame(st.session_state.comodos), use_container_width=True)
-
+    st.write("### 🧱 Planta de Cômodos (Inserir / Alterar / Remover)")
+    
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        with st.form("form_comodo_civil"):
+            c_nome = st.text_input("Nome do Ambiente (Ex: Cozinha):")
+            c_comp = st.number_input("Comprimento Linear (m):", value=4.0, min_value=0.1)
+            c_larg = st.number_input("Largura Linear (m):", value=3.0, min_value=0.1)
+            if st.form_submit_button("➕ Salvar Ambiente"):
+                if c_nome:
+                    inserir_comodo_db(c_nome, c_comp, c_larg)
+                    st.success("Cômodo gravado no SQLite!")
+                    st.rerun()
+                    
+    with col_v2:
+        lista_comodos_físicos = listar_comodos_db()
+        if lista_comodos_físicos:
+            df_com_f = pd.DataFrame(lista_comodos_físicos, columns=["ID", "Cômodo", "Comprimento (m)", "Largura (m)"])
+            st.dataframe(df_com_f, use_container_width=True, hide_index=True)
+            
+            id_com_op = st.number_input("ID do Cômodo para Ação:", min_value=1, step=1, key="op_com_id")
+            c_alt_chk = st.checkbox("Ativar Alteração de Dados?")
+            if c_alt_chk:
+                alt_c_nome = st.text_input("Novo Nome Ambiente:")
+                alt_c_comp = st.number_input("Novo Comprimento:", value=4.0)
+                alt_c_larg = st.number_input("Nova Largura:", value=3.0)
+                if st.button("📝 Confirmar Alteração Cômodo"):
+                    atualizar_comodo_db(id_com_op, alt_c_nome, alt_c_comp, alt_c_larg)
+                    st.success("Dados atualizados!")
+                    st.rerun()
+            if st.button("❌ Remover Cômodo Selecionado"):
+                excluir_comodo_db(id_com_op)
+                st.success("Removido da planta!")
+                st.rerun()
+with tab_civil:
     st.markdown("---")
     modo_civil = st.radio("Seletor do Modo de Escopo Civil:", ["Cálculo Global por Área (m²)", "Levantamento por Cômodos Cadastrados"], horizontal=True)
     
@@ -326,8 +376,8 @@ with tab_civil:
             st.rerun()
     else:
         st.session_state.lista_materials_civil = []
-        if st.session_state.comodos:
-            area_acumulada = sum(float(c["Comprimento"]) * float(c["Largura"]) for c in st.session_state.comodos)
+        if lista_comodos_físicos:
+            area_acumulada = sum(float(c[2]) * float(c[3]) for c in lista_comodos_físicos)
             st.metric("Área Linear Acumulada dos Ambientes", f"{round(area_acumulada, 2)} m²")
             if st.button("📊 Processar Insumos por Prancha de Cômodos"):
                 st.session_state.lista_materials_civil = [
@@ -338,8 +388,8 @@ with tab_civil:
     if st.session_state.lista_materials_civil: st.dataframe(pd.DataFrame(st.session_state.lista_materials_civil), use_container_width=True)
 with tab_eletrica:
     st.write("### ⚡ Escopo Relacional sob Critério Estruturado MDA (NBR 5410)")
-    modo_eletrico = st.radio("Método de Lançamento:", ["Planta Otimizada (Lote Completo)", "Lançamento Manual Individual"], horizontal=True)
-    lista_comodos_opcoes = [c["Cômodo"] for c in st.session_state.comodos] if st.session_state.comodos else ["Geral"]
+    modo_eletrico = st.radio("Método de Lançamento Elétrico:", ["Planta Otimizada (Lote Completo)", "Lançamento Manual Individual"], horizontal=True)
+    lista_comodos_opcoes = [c[1] for c in lista_comodos_físicos] if lista_comodos_físicos else ["Geral"]
     
     if modo_eletrico == "Planta Otimizada (Lote Completo)":
         if st.button("🚀 Processar Lote Completo Base MDA"):
@@ -413,7 +463,7 @@ with tab_solar:
 with tab_catalogo:
     cat_df = listar_materiais_catalogo()
     if cat_df:
-        df_cat = pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade", "Unidade"])
+        df_cat = pd.DataFrame(cat_df, columns=["ID", "Segmento", "Etapa", "Material", "Quantidade Base", "Unidade"])
         st.dataframe(df_cat, use_container_width=True, hide_index=True)
 def gerar_pdf_completo_obra():
     buffer = BytesIO()
@@ -437,7 +487,6 @@ def gerar_pdf_completo_obra():
     t_cli = Table(dados_cliente_tabela, colWidths=[250.0, 270.0, 230.0])
     t_cli.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')), ('PADDING', (0,0), (-1,-1), 4)]))
     elementos.append(t_cli)
-    
     pot_total_sistema = sum(int(c["POT_W"]) for c in st.session_state.lista_circuitos_calc) if st.session_state.lista_circuitos_calc else 5000
     if pot_total_sistema <= dados_c["limite_mono"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Monofásico", "10.0 mm²", "40 A", dados_c["caixa_mono"]
     elif pot_total_sistema <= dados_c["limite_bi"]: tipo_entrada, cabo_padrao, dj_padrao, detalhe_caixa = "Bifásico", "16.0 mm²", "63 A", dados_c["caixa_bi"]
@@ -492,7 +541,7 @@ def gerar_pdf_completo_obra():
                 Paragraph(str(r_val), estilo_celula), Paragraph(str(s_val), estilo_celula), Paragraph(str(t_val), estilo_celula)
             ])
             
-        # DEMANDA ATENDIDA: Centralização rigorosa (estilo_celula) em TODAS as células da última linha totalizada
+        # DEMANDA ATENDIDA: Centralização rigorosa (estilo_celula) em TODAS as células da linha final totalizada
         dados_qdc_pdf.append([
             Paragraph("<b>TOTAL</b>", estilo_celula), Paragraph("<b>-</b>", estilo_celula),
             Paragraph(f"<b>Potência Instalada Ativa: {sum_pot_w} W | Aparente: {sum_pot_va} VA</b>", estilo_celula),
@@ -534,13 +583,12 @@ def gerar_pdf_completo_obra():
     elementos.append(Paragraph("9. Esquema Técnico Multifilar - Proteções de Cabeceira e Distribuição por Fase", estilo_sub))
     elementos.append(gerar_desenho_multifilar(cabo_padrao, dj_padrao, st.session_state.lista_circuitos_calc))
 
-    # DEMANDA ATENDIDA: Consolidação de todas as observações técnicas levantadas para a prancha do QDC
     elementos.append(PageBreak())
     elementos.append(Paragraph("10. Observações Técnicas Normativas (Fixar na Tampa Interna do QDC)", estilo_sub))
     caviso = [
         Paragraph("<b>📝 DIRETRIZES DE CAMPO OBRIGATÓRIAS - NBR 5410 & NR-10</b>", estilo_aviso_tit),
         Spacer(1, 2),
-        Paragraph("• <b>Código Regulamentar de Cores:</b> Condutor Neutro deve ser 🔵 AZUL CLARO. Condutor de Proteção deve ser 🟢 VERDE ou VERDE-AMARELO. Condutores de Fase devem ser ⚫ PRETO ou 🔴 VERMELHO.", estilo_aviso_corpo),
+        Paragraph("• <b>Código Regulamentar de Cores:</b> Condutor Neutro deve ser 🔵 AZUL CLARO. Condutor de Proteção deve ser 🟢 VERDE. Condutores de Fase devem ser ⚫ PRETO ou 🔴 VERMELHO.", estilo_aviso_corpo),
         Paragraph("• <b>Dispositivos de Proteção Ativos:</b> É proibido anular o Interruptor Diferencial Residual (IDR) de 30mA e os Supressores de Surto (DPS) de 45kA classe II.", estilo_aviso_corpo),
         Paragraph("• <b>Identificação de Circuitos:</b> Todas as chaves disjuntoras devem receber etiquetas correspondentes à prancha MDA sob risco de interdição técnica.", estilo_aviso_corpo),
         Paragraph("• <b>Torque e Reaperto Técnico:</b> Realizar inspeção semestral de torque nos bornes de conexão dos disjuntores para evitar pontos quentes e perdas por efeito Joule.", estilo_aviso_corpo)
